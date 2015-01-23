@@ -20,6 +20,7 @@ class G:
     socket = None
     config = None
     plugins = {}
+    callback = 'get_stats'
 
 def zmq_init(pub):
 
@@ -46,14 +47,11 @@ def plugin_init(pathname):
     for s in sources:
         name = os.path.basename(s).split(".")[0]
         mod = imp.load_source(name, s)
-        try:
-            mod.get_stats()
-        except:
+        if G.callback in dir(mod):
+            G.plugins[name] = mod
+            logging.info("Registering plugin: %s" % name)
+        else:
             logging.warn("Skipping %s" % name)
-        G.plugins[name] = mod
-
-
-    logging.debug("Found plugins: %s" % "".join(G.plugins.keys()))
 
 def main():
 
