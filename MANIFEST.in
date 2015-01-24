@@ -1,0 +1,3 @@
+include plugins/*.py
+include *.conf
+include README.*
