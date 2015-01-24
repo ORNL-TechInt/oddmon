@@ -7,8 +7,10 @@ setup(name='oddmon',
       version='0.1',
       author='Feiyi Wang',
       author_email='fwang2@ornl.gov',
-      scripts=['mond.py'],
-      data_files=[ ('/usr/lib64/oddmon', plugins) ]
+      scripts=['mond.py', 'aggrd.py'],
+      data_files=[ ('/usr/lib64/oddmon', plugins),
+                  ('/etc/oddmon', 'oddmon.conf'),
+                  ('/usr/share/doc/oddman', 'README.md')]
       )
 
 
