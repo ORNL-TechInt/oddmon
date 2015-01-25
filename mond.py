@@ -1,5 +1,10 @@
 #!/usr/bin/env python
+"""
+    A simple distributed monitoring tool with plugin support
 
+    author: Feiyi Wang <fwang2@ornl.gov>
+
+"""
 import sys
 import os.path
 import signal
