@@ -23,7 +23,7 @@ ARGS    = None
 class G:
 
     context = None
-    socket = None
+    publisher = None
     config = None
     plugins = {}
     callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
@@ -41,8 +41,21 @@ def zmq_init(pub):
     pub = "tcp://*:" + pub
     logger.debug("Bind to %s" % pub)
     G.context = zmq.Context()
-    G.socket = G.context.socket(zmq.PUB)
-    G.socket.bind(pub)
+    G.publisher = G.context.socket(zmq.PUB)
+    # prevent publisher overflow from slow subscribers
+    if hasattr(zmq, "HWM"):
+        G.publisher.setsockopt(zmq.HWM, 1)
+    elif hasattr(zmq, "SNDHWM"):
+        G.publisher.setsockopt(zmq.SNDHWM, 1)
+    else:
+        logger.warn("Can't set High Water Mark option")
+
+    if hasattr(zmq, "SWAP"):
+        G.publisher.setsockopt(zmq.SWAP, 2500000)
+    else:
+        logger.warn("Can't set SWAP option")
+
+    G.publisher.bind(pub)
 
 def sig_handler(signal, frame):
 
@@ -103,12 +116,15 @@ def main():
 
     while True:
         for name, mod in G.plugins.iteritems():
-            msg = mod.get_stats()
+            try:
+                msg = mod.get_stats()
+            except Exception as e:
+                logger.error("%s --->\n" % (name, e))
+
             logger.debug("%s -> %s" % (name, msg))
-            G.socket.send_string(msg)
+            G.publisher.send_string(msg)
 
         time.sleep(interval)
-
     plugin_cleanup()
 
 if __name__ == "__main__": main()

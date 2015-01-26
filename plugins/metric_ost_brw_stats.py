@@ -18,8 +18,9 @@ class G:
     buf = None
 
 def scan_osts():
-    osts = glob.glob("/proc/fs/lustre/obdfilter/*")
+    fsname = None
     ostnames = []
+    osts = glob.glob("/proc/fs/lustre/obdfilter/*")
     if len(osts) != 0:
         fsname, _ = os.path.basename(osts[0]).split("-")
         for ost in osts:
@@ -111,6 +112,10 @@ def metric_init(name):
     G.fsname, G.ostnames = scan_osts()
 
 def get_stats():
+    if G.fsname is None:
+        logger.error("No valid file system, skip")
+        return ""
+
     update()
     return json.dumps(G.stats)
     # return json.dumps(G.stats, sort_keys=True, indent=4)
