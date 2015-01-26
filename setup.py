@@ -1,7 +1,7 @@
 from distutils.core import setup
 import glob
 
-plugins = glob.glob("plugins/*.py")
+plugins = glob.glob("metric*.py")
 
 setup(name='oddmon',
       version='0.1',

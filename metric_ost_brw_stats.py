@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
 import os
-import glob
 import logging
 import json
 import time
 from collections import defaultdict
+try:
+    from oddmon import lfs_utils
+except:
+    import lfs_utils
 
 # Globals
 
@@ -16,19 +19,6 @@ class G:
     ostnames = None
     stats = defaultdict(lambda: defaultdict(int))
     buf = None
-
-def scan_osts():
-    fsname = None
-    ostnames = []
-    osts = glob.glob("/proc/fs/lustre/obdfilter/*")
-    if len(osts) != 0:
-        fsname, _ = os.path.basename(osts[0]).split("-")
-        for ost in osts:
-            ostnames.append(os.path.basename(ost))
-    else:
-        logger.error("Can't locate Lustre OSTs")
-
-    return fsname, ostnames
 
 def extract_snaptime(ret):
     idx = G.buf.index('\n')
@@ -106,10 +96,13 @@ def update():
     logger.debug("Sucessfully refreshing brw stats")
 
 
-def metric_init(name):
+def metric_init(name, loglevel=logging.DEBUG):
     global logger
+    logging.basicConfig(level=loglevel,
+                        format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
+
     logger = logging.getLogger(name)
-    G.fsname, G.ostnames = scan_osts()
+    G.fsname, G.ostnames = lfs_utils.scan_osts()
 
 def get_stats():
     if G.fsname is None:

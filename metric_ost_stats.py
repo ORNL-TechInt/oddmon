@@ -6,6 +6,10 @@ import logging
 import json
 import time
 from collections import defaultdict
+try:
+    from oddmon import lfs_utils
+except:
+    import lfs_utils
 
 # Globals
 
@@ -15,20 +19,6 @@ class G:
     fsname = None
     ostnames = None
     stats = defaultdict(lambda: defaultdict(int))
-
-def scan_osts():
-    fsname=None
-    ostnames = []
-    osts = glob.glob("/proc/fs/lustre/obdfilter/*")
-    if len(osts) != 0:
-        fsname, _ = os.path.basename(osts[0]).split("-")
-        for ost in osts:
-            ostnames.append(os.path.basename(ost))
-    else:
-        logger.error("Can't locate Lustre OSTs")
-
-    return fsname, ostnames
-
 
 def read_ost_stats(f):
     """
@@ -67,7 +57,7 @@ def metric_init(name, loglevel=logging.DEBUG):
                     format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
     logger = logging.getLogger(name)
 
-    G.fsname, G.ostnames = scan_osts()
+    G.fsname, G.ostnames = lfs_utils.scan_osts()
 
 def get_stats():
 
