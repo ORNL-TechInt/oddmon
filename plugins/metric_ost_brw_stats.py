@@ -113,7 +113,7 @@ def metric_init(name):
 
 def get_stats():
     if G.fsname is None:
-        logger.error("No valid file system, skip")
+        logger.error("No valid file system ... skip")
         return ""
 
     update()
