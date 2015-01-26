@@ -5,8 +5,12 @@ import signal
 import logging
 import argparse
 import zmq
-import hostlist
 import ConfigParser
+
+try:
+    from oddmon import hostlist
+except ImportError:
+    import hostlist
 
 # Globals
 logger  = None
