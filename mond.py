@@ -38,7 +38,7 @@ def parse_args():
     return myargs
 
 def zmq_init(pub):
-
+    pub = "tcp://*:" + pub
     logger.debug("Bind to %s" % pub)
     G.context = zmq.Context()
     G.socket = G.context.socket(zmq.PUB)
@@ -80,7 +80,7 @@ def main():
 
     signal.signal(signal.SIGINT, sig_handler)
 
-    logger = logging.getLogger("main")
+    logger = logging.getLogger("mond")
 
     ARGS = parse_args()
     if ARGS.verbose:
@@ -92,10 +92,9 @@ def main():
 
 
     G.config = ConfigParser.SafeConfigParser()
-    G.config.read("oddman.conf")
-    pub = G.config.get("global", "pub")
+    G.config.read("oddmon.conf")
     interval = G.config.getint("global", "interval")
-    zmq_init(pub)
+    zmq_init( G.config.get("global", "pub_port") )
 
     # initialize all metric modules
 
