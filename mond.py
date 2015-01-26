@@ -1,7 +1,7 @@
 #!/usr/bin/env python
+__version__ = "0.1"
 """
     A simple distributed monitoring tool with plugin support
-
     author: Feiyi Wang <fwang2@ornl.gov>
 
 """
@@ -27,9 +27,6 @@ class G:
     config = None
     plugins = {}
     callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
-
-
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MOND program")
