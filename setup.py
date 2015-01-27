@@ -12,7 +12,8 @@ setup(name='oddmon',
       data_files=[ ('/usr/lib64/oddmon', plugins),
                   ('/etc/oddmon', ['oddmon.conf']),
                   ('/usr/share/doc/oddmon', ['README.md'])
-                  ]
+                  ],
+      requires=['argparse']
       )
 
 
