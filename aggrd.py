@@ -8,6 +8,7 @@ import zmq
 import ConfigParser
 import time
 from zmq.eventloop import ioloop, zmqstream
+import json
 
 try:
     from oddmon import hostlist
@@ -43,7 +44,13 @@ def db_init():
     pass
 
 def save_msg(msg):
-    logger.debug("Saving \n %s" % msg)
+
+    blob = json.loads(msg[0])
+
+    for metric, stats in blob.iteritems():
+        for ost, val in stats:
+            snapshot_time = val['snapshot_time']
+
 
 def zmq_init(hosts, port):
     """
@@ -86,5 +93,8 @@ def main():
     G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
     pub_port = G.config.get("global", "pub_port")
     zmq_init(G.hosts, pub_port)
+
+    # we kick off the event loop with zmq_init()
+    # after that, all we have to do is sit tight
 
 if __name__ == "__main__": main()

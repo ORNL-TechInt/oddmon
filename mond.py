@@ -15,6 +15,7 @@ import argparse
 import zmq
 import glob
 import imp
+import json
 
 # Globals
 logger  = None
@@ -112,19 +113,23 @@ def main():
     plugin_init()
 
     while True:
+        merged = {}
         for name, mod in G.plugins.iteritems():
             try:
                 msg = mod.get_stats()
             except Exception as e:
                 logger.error("%s --->\n" % (name, e))
+            merged[name] = msg
 
-            if len(msg) > 0:
-                logger.debug("%s -> %s" % (name, msg))
-                G.publisher.send_string(msg)
-            else:
-                logger.warn("Empty stats")
+        if len(merged) > 0:
+            logger.debug("%s" % merged)
+            G.publisher.send_json(merged)
+        else:
+            logger.warn("Empty stats")
 
         time.sleep(interval)
+
+
     plugin_cleanup()
 
 if __name__ == "__main__": main()

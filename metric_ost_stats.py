@@ -69,6 +69,7 @@ def get_stats():
 
     return json.dumps(G.stats)
 
+
 def metric_cleanup():
     pass
 

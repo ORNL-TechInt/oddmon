@@ -110,8 +110,8 @@ def get_stats():
         return ""
 
     update()
+
     return json.dumps(G.stats)
-    # return json.dumps(G.stats, sort_keys=True, indent=4)
 
 def metric_cleanup():
     pass
