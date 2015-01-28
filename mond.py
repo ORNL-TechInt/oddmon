@@ -36,7 +36,6 @@ def parse_args():
 
 def zmq_init(pub):
     pub = "tcp://*:" + pub
-    logger.debug("Bind to %s" % pub)
     G.context = zmq.Context()
     G.publisher = G.context.socket(zmq.PUB)
     # prevent publisher overflow from slow subscribers
@@ -53,6 +52,7 @@ def zmq_init(pub):
         logger.warn("Can't set SWAP option")
 
     G.publisher.bind(pub)
+    logger.debug("Bind to %s" % pub)
 
 def sig_handler(signal, frame):
 
@@ -63,7 +63,7 @@ def sig_handler(signal, frame):
 
 def plugin_scan(pathname):
 
-    pathname = os.path.realpath(pathname) + "/*.py"
+    pathname = os.path.realpath(pathname) + "/metric*.py"
     logger.debug("Plugin path: %s" % pathname)
     sources = glob.glob(pathname)
 
@@ -108,7 +108,7 @@ def main():
 
     # initialize all metric modules
 
-    plugin_scan("./plugins")
+    plugin_scan(".")
     plugin_init()
 
     while True:
@@ -118,8 +118,11 @@ def main():
             except Exception as e:
                 logger.error("%s --->\n" % (name, e))
 
-            logger.debug("%s -> %s" % (name, msg))
-            G.publisher.send_string(msg)
+            if len(msg) > 0:
+                logger.debug("%s -> %s" % (name, msg))
+                G.publisher.send_string(msg)
+            else:
+                logger.warn("Empty stats")
 
         time.sleep(interval)
     plugin_cleanup()

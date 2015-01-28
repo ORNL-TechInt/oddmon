@@ -6,6 +6,8 @@ import logging
 import argparse
 import zmq
 import ConfigParser
+import time
+from zmq.eventloop import ioloop, zmqstream
 
 try:
     from oddmon import hostlist
@@ -18,7 +20,9 @@ ARGS    = None
 
 
 class G:
-    sockets = []
+    subscribers = []
+    config = None
+    hosts = None
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MOND program")
@@ -38,13 +42,31 @@ def sig_handler(signal, frame):
 def db_init():
     pass
 
+def save_msg(msg):
+    logger.debug("Saving \n %s" % msg)
+
 def zmq_init(hosts, port):
+    """
+    Setup async call back on receiving
+    """
     context = zmq.Context()
     for host in hosts:
-        socket = context.socket(zmq.SUB)
+        socket_sub = context.socket(zmq.SUB)
+        socket_sub.setsockopt(zmq.SUBSCRIBE, "")
         pub_endpoint =  "tcp://%s:%s" % (host, port)
-        logger.debug("Connecting to %s" % pub_endpoint)
-        socket.connect(pub_endpoint)
+        try:
+            socket_sub.connect(pub_endpoint)
+            stream_sub = zmqstream.ZMQStream(socket_sub)
+            stream_sub.on_recv(save_msg)
+            G.subscribers.append(socket_sub)
+            logger.debug("Connected to %s" % pub_endpoint)
+        except:
+            logger.error("Failed to connect: %s", pub_endpoint)
+            sys.exit(1)
+
+
+    # kick off event loop
+    ioloop.IOLoop.instance().start()
 
 def main():
     global logger, ARGS
@@ -61,9 +83,8 @@ def main():
 
     G.config = ConfigParser.SafeConfigParser()
     G.config.read("oddmon.conf")
-
-    hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
+    G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
     pub_port = G.config.get("global", "pub_port")
-    zmq_init(hosts, pub_port)
+    zmq_init(G.hosts, pub_port)
 
 if __name__ == "__main__": main()
