@@ -9,6 +9,7 @@ import ConfigParser
 import time
 from zmq.eventloop import ioloop, zmqstream
 import json
+import collections
 
 try:
     from oddmon import hostlist
@@ -33,6 +34,15 @@ def parse_args():
     myargs = parser.parse_args()
     return myargs
 
+def convert(data):
+    if isinstance(data, basestring):
+        return str(data)
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert, data))
+    else:
+        return data
 
 def sig_handler(signal, frame):
 
@@ -48,8 +58,9 @@ def save_msg(msg):
     blob = json.loads(msg[0])
 
     for metric, stats in blob.iteritems():
-        for ost, val in stats:
+        for ost, val in stats.iteritems():
             snapshot_time = val['snapshot_time']
+            print ost
 
 
 def zmq_init(hosts, port):
