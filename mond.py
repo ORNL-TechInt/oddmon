@@ -123,7 +123,7 @@ def main():
 
         if len(merged) > 0:
             logger.debug("%s" % merged)
-            G.publisher.send_json(merged)
+            G.publisher.send_string(json.dumps(merged))
         else:
             logger.warn("Empty stats")
 
