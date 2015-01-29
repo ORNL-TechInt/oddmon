@@ -53,9 +53,7 @@ def update():
 
 def metric_init(name, loglevel=logging.DEBUG):
     global logger
-    logging.basicConfig(level=loglevel,
-                    format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
-    logger = logging.getLogger(name)
+    logger = logging.getLogger("main.%s" % __name__)
 
     G.fsname, G.ostnames = lfs_utils.scan_osts()
 

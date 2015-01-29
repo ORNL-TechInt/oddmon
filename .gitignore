@@ -4,4 +4,4 @@ dist
 MANIFEST
 *.pyc
 plugins/.ropeproject
-
+*.log

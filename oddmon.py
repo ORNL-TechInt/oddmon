@@ -14,9 +14,6 @@ import ConfigParser
 import argparse
 import glob
 
-import oddpub
-import oddsub
-
 # Globals
 logger  = None
 ARGS    = None
@@ -30,20 +27,18 @@ class G:
     callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="MOND program")
+    parser = argparse.ArgumentParser(description="ODDMON program")
+
     parent_parser = argparse.ArgumentParser(add_help=False)
-
     parent_parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
-    parent_parser.add_argument("-c", "--conf", default="oddmon.cfg", help="configure file")
-
+    parent_parser.add_argument("--cfgfile", required=True,  help="configure file")
     subparsers = parser.add_subparsers(help="Provide one of the sub-commands")
-
-    pub_parser = parsers.add_parser("server", parents=[parent_parser], help="Run in server mode")
-    pub_parser.set_defaults(func=main_pub)
-
-    sub_parser = parsers.add_parser("client", parents=[parent_parser], help="Run in client mode")
-    sub_parser.set_defaults(func=main_sub)
-
+    collect_parser = subparsers.add_parser("collect", parents=[parent_parser], help="Run in collector mode")
+    collect_parser.add_argument("-p", "--port", type=int, nargs=1, default=8888)
+    collect_parser.add_argument("-i", "--interval", type=int, nargs=1, default=10)
+    collect_parser.set_defaults(func=main_collect)
+    aggregate_parser = subparsers.add_parser("aggregate", parents=[parent_parser], help="Run in aggregator mode")
+    aggregate_parser.set_defaults(func=main_aggregate)
     myargs = parser.parse_args()
     return myargs
 
@@ -53,23 +48,51 @@ def sig_handler(signal, frame):
     sys.exit(0)
 
 
+def main_collect():
+    import oddpub
+    oddpub.ARGS = ARGS
+    oddpub.main()
+
+def main_aggregate():
+    import oddsub
+
+
+def setup_logging(loglevel):
+    global logger
+    logger = logging.getLogger("main")
+
+    level = getattr(logging, loglevel.upper())
+    logger.setLevel(level)
+
+    fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh = logging.FileHandler(filename="oddmon.log", mode="w")
+    fh.setFormatter(fmt)
+    ch = logging.StreamHandler();
+    ch.setFormatter(fmt)
+    ch.setLevel(level)
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
 def main():
     global logger, ARGS
 
     signal.signal(signal.SIGINT, sig_handler)
 
     ARGS = parse_args()
+
     if ARGS.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
+        setup_logging("debug")
     else:
-        logging.basicConfig(level=logging.INFO,
-            format="%(name)s - %(message)s")
+        setup_logging("info")
 
+    logger.debug(ARGS)
 
-    G.config = ConfigParser.SafeConfigParser()
-    G.config.read("oddmon.conf")
-    interval = G.config.getint("global", "interval")
+    try:
+        G.config = ConfigParser.SafeConfigParser()
+        G.config.read(ARGS.cfgfile)
+    except:
+        logger.error("Can't read configuration file")
+        sys.exit(1)
 
     ARGS.func()
 

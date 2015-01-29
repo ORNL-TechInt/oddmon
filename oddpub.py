@@ -29,14 +29,8 @@ class G:
     plugins = {}
     callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="MOND program")
-    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
-    myargs = parser.parse_args()
-    return myargs
-
-def zmq_init(pub):
-    pub = "tcp://*:" + pub
+def zmq_init(port=8888):
+    pub = "tcp://*:%s" % port
     G.context = zmq.Context()
     G.publisher = G.context.socket(zmq.PUB)
     # prevent publisher overflow from slow subscribers
@@ -88,24 +82,9 @@ def plugin_cleanup():
 
 def main():
     global logger, ARGS
+    logger = logging.getLogger("main.%s" % __name__)
 
-    signal.signal(signal.SIGINT, sig_handler)
-
-    logger = logging.getLogger("mond")
-
-    ARGS = parse_args()
-    if ARGS.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
-    else:
-        logging.basicConfig(level=logging.INFO,
-            format="%(name)s - %(message)s")
-
-
-    G.config = ConfigParser.SafeConfigParser()
-    G.config.read("oddmon.conf")
-    interval = G.config.getint("global", "interval")
-    zmq_init( G.config.get("global", "pub_port") )
+    zmq_init()
 
     # initialize all metric modules
 
@@ -127,7 +106,7 @@ def main():
         else:
             logger.warn("Empty stats")
 
-        time.sleep(interval)
+        time.sleep(ARGS.interval)
 
 
     plugin_cleanup()
