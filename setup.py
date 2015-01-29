@@ -22,7 +22,7 @@ setup(name='oddmon',
       author='Feiyi Wang',
       author_email='fwang2@ornl.gov',
       py_modules=['hostlist', 'lfs_utils'],
-      scripts=['mond.py','aggrd.py'],
+      scripts=['odd_server.py','odd_client.py'],
       data_files=[ ('/usr/lib64/oddmon', plugins),
                   ('/etc/oddmon', ['oddmon.conf']),
                   ('/usr/share/doc/oddmon', ['README.md'])
