@@ -26,19 +26,6 @@ class G:
     config = None
     hosts = None
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="MOND program")
-    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
-    parser.add_argument("-r", "--refreshdb", default=False, action="store_true", help="Recreate database")
-
-    myargs = parser.parse_args()
-    return myargs
-
-def sig_handler(signal, frame):
-
-    print "\tUser cancelled ... cleaning up"
-    sys.exit(0)
-
 
 def db_init():
     pass
@@ -77,24 +64,12 @@ def zmq_init(hosts, port):
     # kick off event loop
     ioloop.IOLoop.instance().start()
 
-def main():
+def main(G):
     global logger, ARGS
 
-    signal.signal(signal.SIGINT, sig_handler)
-    logger = logging.getLogger("aggrd")
-    ARGS = parse_args()
-    if ARGS.verbose:
-        logging.basicConfig(level=logging.DEBUG,
-            format="%(asctime)s - %(name)s - %(levelname)s\t - %(message)s")
-    else:
-        logging.basicConfig(level=logging.INFO,
-            format="%(name)s - %(message)s")
+    logger = logging.getLogger("main.%s" % __name__)
 
-    G.config = ConfigParser.SafeConfigParser()
-    G.config.read("oddmon.conf")
-    G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
-    pub_port = G.config.get("global", "pub_port")
-    zmq_init(G.hosts, pub_port)
+    zmq_init(G.hosts, ARGS.port)
 
     # we kick off the event loop with zmq_init()
     # after that, all we have to do is sit tight
