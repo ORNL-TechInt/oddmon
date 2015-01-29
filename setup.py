@@ -24,7 +24,8 @@ setup(name='oddmon',
     scripts=['oddmon.py'],
     data_files=[ ('lib/oddmon', plugins),
                   ('lib/oddmon', ['oddmon.cfg.sample']),
-                  ('share/doc/oddmon', ['README.md'])
+                  ('share/doc/oddmon', ['README.md']),
+                ('/etc/init.d', ['collector', 'aggregator'])
                   ],
     classifiers=[
             'Development Status :: 3 - Alpha',
