@@ -4,5 +4,9 @@ pub_port        = 8888
 pub_hosts       = 192.168.92.155,192.168.92.156
 interval        = 10
 
-[db]
+[DB]
+
+type            = sqlite3
+url             = "osts.db"
+
 
