@@ -82,7 +82,7 @@ def plugin_cleanup():
 
 def main():
     global logger, ARGS
-    logger = logging.getLogger("main.%s" % __name__)
+    logger = logging.getLogger("app.%s" % __name__)
 
     zmq_init()
 

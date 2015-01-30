@@ -14,7 +14,7 @@ import hostlist
 from daemon import Daemon
 
 # Globals
-logger  = None
+logger  = logging.getLogger("app")
 ARGS    = None
 
 class G:
@@ -82,6 +82,7 @@ def main_collect():
 
 
 def setup_logging(loglevel):
+
     global logger
 
     level = getattr(logging, loglevel.upper())
@@ -105,8 +106,6 @@ def setup_logging(loglevel):
 
 def main():
     global logger, ARGS
-
-    logger = logging.getLogger("main")
 
     signal.signal(signal.SIGINT, sig_handler)
 

@@ -9,7 +9,7 @@ import ast
 import sql
 
 ARGS    = None
-logger = logging.getLogger("main.%s" % __name__)
+logger = logging.getLogger("app.%s" % __name__)
 
 class G:
     subscribers = []

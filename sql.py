@@ -1,7 +1,7 @@
 import logging
 import sqlite3 as lite
 
-logger = logging.getLogger("main.%s" % __name__)
+logger = logging.getLogger("app.%s" % __name__)
 
 class G:
     conn = None
