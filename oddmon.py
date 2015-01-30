@@ -103,7 +103,7 @@ def setup_logging(loglevel):
     console_handler.setFormatter(fmt)
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
-
+    logger.propagate = False
 def main():
     global logger, ARGS
 

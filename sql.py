@@ -50,7 +50,7 @@ def insert_row(metric, stats):
     except lite.Error as e:
         logger.error(e)
     else:
-        logger.debug("Insert OK")
+        logger.debug("Insert OK from %s" % metric)
 
 def db_init(url, initTable=False):
 
