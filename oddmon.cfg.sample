@@ -1,12 +1,12 @@
 [global]
 
 pub_port        = 8888
-pub_hosts       = 192.168.92.155,192.168.92.156
+pub_hosts       = 192.168.92.155
 interval        = 10
 
 [DB]
 
 type            = sqlite3
-url             = "osts.db"
+url             = oddmon.db 
 
 

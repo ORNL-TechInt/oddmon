@@ -6,7 +6,6 @@ from __future__ import print_function
 
 """
 import sys
-import os.path
 import signal
 import logging
 import ConfigParser
@@ -59,7 +58,7 @@ class AggregateDaemon(Daemon):
     def run(self):
         import oddsub
         oddsub.ARGS = ARGS
-        oddsub.main(G)
+        oddsub.main(G.hosts, G.port, G.url)
 
 
 def handle(p):
@@ -84,24 +83,30 @@ def main_collect():
 
 def setup_logging(loglevel):
     global logger
-    logger = logging.getLogger("main")
 
     level = getattr(logging, loglevel.upper())
+
+    fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.setLevel(level)
 
-    G.fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    G.file_handler = logging.FileHandler(filename="oddmon.log", mode="w")
-    G.file_handler.setFormatter(G.fmt)
+    logfile = None
+    if hasattr(ARGS, "collect"):
+        logfile = "LOG.collector"
+    else:
+        logfile = "LOG.aggregator"
 
-    G.console_handler = logging.StreamHandler();
-    G.console_handler.setFormatter(G.fmt)
-    G.console_handler.setLevel(level)
+    file_handler = logging.FileHandler(filename=logfile, mode="w")
+    file_handler.setFormatter(fmt)
 
-    logger.addHandler(G.console_handler)
-    logger.addHandler(G.file_handler)
+    console_handler = logging.StreamHandler();
+    console_handler.setFormatter(fmt)
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
 
 def main():
     global logger, ARGS
+
+    logger = logging.getLogger("main")
 
     signal.signal(signal.SIGINT, sig_handler)
 
@@ -118,6 +123,8 @@ def main():
     try:
         G.config.read(ARGS.cfgfile)
         G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
+        G.url = G.config.get("DB", "url")
+        G.port = G.config.get("global", "pub_port")
     except:
         logger.error("Can't read configuration file")
         sys.exit(1)

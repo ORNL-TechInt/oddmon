@@ -2,8 +2,7 @@
 
 import os
 import glob
-
-
+import logging
 
 def scan_osts():
     fsname=None
@@ -15,5 +14,15 @@ def scan_osts():
             ostnames.append(os.path.basename(ost))
     return fsname, ostnames
 
+def get_filehandler(f, m="w", level=logging.DEBUG):
+    fh = logging.FileHandler(filename=f, mode=m)
+    fh.setLevel(level)
+    fh.setFormatter(G.fmt)
+    return fh
 
+def get_consolehandler(level=logging.DEBUG):
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(G.fmt)
+    return ch
 

@@ -1,5 +1,6 @@
-include metrics*.py
-include oddmon.conf
+include *.py
+include oddmon.cfg.sample
 include README.md
-include setup.py
 include setup.cfg
+include collector
+include aggregator

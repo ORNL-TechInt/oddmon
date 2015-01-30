@@ -1,4 +1,5 @@
-from distutils.core import setup
+import setuptools
+
 import glob
 import sys
 plugins = glob.glob("metric*.py")
@@ -13,7 +14,7 @@ details="""
 More details on the package
 """
 
-setup(name='oddmon',
+setuptools.setup(name='oddmon',
     description="A distributed monitoring tool suite",
     url="http://github.com/fwang2/oddmon",
     license="LGPL",

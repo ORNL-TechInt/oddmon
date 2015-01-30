@@ -1,40 +1,66 @@
-import sys
 import logging
-import sqlite3
+import sqlite3 as lite
 
-ARGS = None
-logger = None
+logger = logging.getLogger("main.%s" % __name__)
 
 class G:
-    url = None
     conn = None
-    config = None
 
-def create_table():
-    if G.conn is None:
-        G.conn = sqlite3.connect(G.url)
-    c = G.conn.cusor()
+def drop_table(name):
+
+    c = G.conn.cursor()
+
+    try:
+        c.execute("DROP TABLE %s" % name)
+    except lite.OperationalError as e:
+        logger.error(e)
+    else:
+        logger.info("Table %s removed" % name)
+
+def create_table(name="OST_STATS", drop = False):
+    c = G.conn.cursor()
+
+    if drop:
+        drop_table(name)
 
     # create table
+    try:
+        c.execute('''
+                CREATE TABLE %s(
+                    Timestamp TEXT,
+                    Metric TEXT,
+                    Target TEXT,
+                    Attributes TEXT)
+                ''' % name)
+    except lite.OperationalError as e:
+        logger.warn(e)
+    else:
+        logger.info("Table %s created" % name)
 
-    c.execute('''
-              CREATE TABLE OSTs(
-                Timestamp TEXT,
-                Metric TEXT,
-                Target TEXT,
-                Attributes TEXT)
-              ''')
 
-    c.commit()
+def insert_row(metric, stats):
+    c = G.conn.cursor()
+    try:
+        for target, attr in stats.iteritems():
+            ts = attr["snapshot_time"]
+            c.execute("INSERT INTO OST_STATS VALUES (?, ?, ?, ?)",
+                    (metric, ts, target, str(attr)))
 
-def insert_row():
+        G.conn.commit()
+    except lite.Error as e:
+        logger.error(e)
+    else:
+        logger.debug("Insert OK")
+
+def db_init(url, initTable=False):
+
     if G.conn is None:
-        G.conn = sqlite3.connect(G.url)
+        G.conn = lite.connect(url)
 
+    create_table(drop = initTable)
 
-def main(url):
-    logger = logging.getLogger("main.%s" % __name__)
-    G.url = url
-
+def db_close():
+    if G.conn is not None:
+        G.conn.close()
 
 

@@ -1,44 +1,25 @@
 #!/usr/bin/env python
 
 import sys
-import signal
 import logging
-import argparse
 import zmq
-import ConfigParser
-import time
 from zmq.eventloop import ioloop, zmqstream
 import json
 import ast
+import sql
 
-try:
-    from oddmon import hostlist
-except ImportError:
-    import hostlist
-
-# Globals
-logger  = None
 ARGS    = None
-
+logger = logging.getLogger("main.%s" % __name__)
 
 class G:
     subscribers = []
-    config = None
-    hosts = None
-
-
-def db_init():
-    pass
 
 def save_msg(msg):
 
     blob = json.loads(msg[0])
     for metric, stats in blob.iteritems():
-        metric = str(metric)
         stats = ast.literal_eval(str(stats))
-        for target, val in stats.iteritems():
-            print target
-
+        sql.insert_row(metric, stats)
 
 
 def zmq_init(hosts, port):
@@ -64,12 +45,11 @@ def zmq_init(hosts, port):
     # kick off event loop
     ioloop.IOLoop.instance().start()
 
-def main(G):
-    global logger, ARGS
+def main(hosts, port, url):
 
-    logger = logging.getLogger("main.%s" % __name__)
 
-    zmq_init(G.hosts, ARGS.port)
+    sql.db_init(url)
+    zmq_init(hosts, port)
 
     # we kick off the event loop with zmq_init()
     # after that, all we have to do is sit tight
