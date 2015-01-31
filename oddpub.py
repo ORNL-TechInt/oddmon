@@ -7,11 +7,8 @@ __version__ = "0.1"
 """
 import sys
 import os.path
-import signal
 import time
 import logging
-import ConfigParser
-import argparse
 import zmq
 import glob
 import imp
@@ -94,14 +91,16 @@ def main():
     while True:
         merged = {}
         for name, mod in G.plugins.iteritems():
+            msg = None
             try:
                 msg = mod.get_stats()
             except Exception as e:
-                logger.error("%s --->\n" % (name, e))
-            merged[name] = msg
+                logger.error("%s --->%s\n" % (name, e))
+
+            if msg: merged[name] = msg
 
         if len(merged) > 0:
-            logger.debug("%s" % merged)
+            logger.debug("publish: %s" % merged)
             G.publisher.send_string(json.dumps(merged))
         else:
             logger.warn("Empty stats")

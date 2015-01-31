@@ -9,7 +9,7 @@ import ast
 import sql
 
 ARGS    = None
-logger = logging.getLogger("app.%s" % __name__)
+logger  = None
 
 class G:
     subscribers = []
@@ -19,8 +19,10 @@ def save_msg(msg):
     blob = json.loads(msg[0])
     for metric, stats in blob.iteritems():
         stats = ast.literal_eval(str(stats))
-        sql.insert_row(metric, stats)
-
+        if len(stats) > 0:
+            sql.insert_row(metric, stats)
+        else:
+            logger.debug("[%s] reports empty stats" % metric)
 
 def zmq_init(hosts, port):
     """
@@ -46,8 +48,8 @@ def zmq_init(hosts, port):
     ioloop.IOLoop.instance().start()
 
 def main(hosts, port, url):
-
-
+    global logger
+    logger = logging.getLogger("app.%s" % __name__)
     sql.db_init(url)
     zmq_init(hosts, port)
 

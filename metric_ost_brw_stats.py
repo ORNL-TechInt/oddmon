@@ -55,6 +55,7 @@ def read_brw_stats(f):
 
     return a dictionary with key/val pairs
     """
+
     ret = { "snapshot_time"                 :'',
             "pages_per_bulk_read"           :defaultdict(list),
             "pages_per_bulk_write"          :defaultdict(list),
@@ -83,17 +84,24 @@ def read_brw_stats(f):
         extract_hist('disk_io_in_flight_read', 'disk_io_in_flight_write', ret)
         extract_hist('io_time_read', 'io_time_write', ret)
         extract_hist('io_size_read', 'io_size_write', ret)
-    return ret
+
+    # trim
+    for key in ret.keys():
+        if len(ret[key]) == 0:
+            del ret[key]
+
+    if len(ret.keys()) > 1:
+        return ret
+    else:                   # if only snapshot_time, return None
+        return None
 
 
 def update():
-    logger.debug("Updating stats")
 
     for ost in G.ostnames:
         fpath = '/proc/fs/lustre/obdfilter/' + ost
-        G.stats[ost] = read_brw_stats(fpath)
-
-    logger.debug("Sucessfully refreshing brw stats")
+        ret = read_brw_stats(fpath)
+        if ret: G.stats[ost] = ret
 
 
 def metric_init(name, loglevel=logging.DEBUG):

@@ -4,10 +4,13 @@ import os
 import glob
 import logging
 
+class G:
+    fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
 def scan_osts():
-    fsname=None
+    fsname = None
     ostnames = []
-    osts = glob.glob("/proc/fs/lustre/obdfilter/*")
+    osts = glob.glob("/proc/fs/lustre/obdfilter/*OST*")
     if len(osts) != 0:
         fsname, _ = os.path.basename(osts[0]).split("-")
         for ost in osts:
@@ -25,4 +28,6 @@ def get_consolehandler(level=logging.DEBUG):
     ch.setLevel(level)
     ch.setFormatter(G.fmt)
     return ch
+
+
 

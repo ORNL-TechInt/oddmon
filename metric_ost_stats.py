@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import glob
 import logging
 import json
 import time
@@ -10,8 +9,6 @@ try:
     from oddmon import lfs_utils
 except:
     import lfs_utils
-
-# Globals
 
 logger = None
 
@@ -34,27 +31,26 @@ def read_ost_stats(f):
                 if chopped[0] == "snapshot_time":
                     ret["snapshot_time"] = chopped[1]
                 if chopped[0] == "write_bytes":
-                    ret["write_bytes_sum"] = chopped[6]
+                    ret["write_bytes_sum"] = int(chopped[6])
                 if chopped[0] == "read_bytes":
-                    ret["read_bytes_sum"] = chopped[6]
+                    ret["read_bytes_sum"] = int(chopped[6])
+
+    if ret['read_bytes_sum'] == 0 and ret['write_bytes_sum'] == 0:
+        return None
 
     return ret
 
-
 def update():
-    logger.debug("Updating stats")
 
     for ost in G.ostnames:
         fpath = '/proc/fs/lustre/obdfilter/' + ost
-        G.stats[ost] = read_ost_stats(fpath)
-
-    logger.debug("Sucessfully refreshing OST stats")
-
+        ret = read_ost_stats(fpath)
+        if ret:
+            G.stats[ost] = ret
 
 def metric_init(name, loglevel=logging.DEBUG):
     global logger
-    logger = logging.getLogger("main.%s" % __name__)
-
+    logger = logging.getLogger("app.%s" % __name__)
     G.fsname, G.ostnames = lfs_utils.scan_osts()
 
 def get_stats():
