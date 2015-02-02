@@ -21,8 +21,12 @@ setuptools.setup(name='oddmon',
     version='0.1a1',
     author='Feiyi Wang',
     author_email='fwang2@ornl.gov',
-    py_modules=['oddpub', 'oddsub','hostlist', 'lfs_utils'],
-    scripts=['oddmon.py'],
+    py_modules=['monctl', 'oddpub', 'oddsub','hostlist', 'lfs_utils'],
+    entry_points={
+        'console_scripts': [
+            'monctl=monctl:main'
+        ]
+    },
     data_files=[ ('lib/oddmon', plugins),
                   ('lib/oddmon', ['oddmon.cfg.sample']),
                   ('share/doc/oddmon', ['README.md']),
