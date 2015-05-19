@@ -7,6 +7,7 @@ from zmq.eventloop import ioloop, zmqstream
 import json
 import ast
 import sql
+import splunk_utils
 
 ARGS    = None
 logger  = None
@@ -36,7 +37,8 @@ def zmq_init(hosts, port):
         try:
             socket_sub.connect(pub_endpoint)
             stream_sub = zmqstream.ZMQStream(socket_sub)
-            stream_sub.on_recv(save_msg)
+            #stream_sub.on_recv(save_msg)
+            stream_sub.on_recv(splunk_utils.push_to_splunk)
             G.subscribers.append(socket_sub)
             logger.debug("Connected to %s" % pub_endpoint)
         except:
@@ -46,11 +48,13 @@ def zmq_init(hosts, port):
 
     # kick off event loop
     ioloop.IOLoop.instance().start()
+    
 
 def main(hosts, port, url):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
     sql.db_init(url)
+    splunk_utils.connect_to_splunk()
     zmq_init(hosts, port)
 
     # we kick off the event loop with zmq_init()
