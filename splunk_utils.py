@@ -27,7 +27,7 @@ def connect_to_splunk():
     # This section should get cut out once we've got the api_ddntools
     # user set up
     #SPLUNK_USER=getpass.getuser()
-    SPLUNK_USER="j4y"
+    SPLUNK_USER=raw_input("Username: ")
     SPLUNK_PWD=getpass.getpass( 'Password for user %s:'%SPLUNK_USER)
 
     G.service = client.connect( host=G.SPLUNK_HOST, port=G.SPLUNK_PORT,
