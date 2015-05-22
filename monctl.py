@@ -23,6 +23,11 @@ class G:
     fmt = None
     console_handler = None
     file_handler = None
+    username = None
+    password = None
+    splunk_host = None
+    splunk_port = None
+    splunk_index = None
 
 def parse_args():
     parser = argparse.ArgumentParser(description="ODDMON program")
@@ -58,7 +63,7 @@ class AggregateDaemon(Daemon):
     def run(self):
         import oddsub
         oddsub.ARGS = ARGS
-        oddsub.main(G.hosts, G.port, G.url)
+        oddsub.main(G.hosts, G.port, G.url, G.username, G.password, G.splunk_port, G.splunk_host)
 
 
 def handle(p):
@@ -124,6 +129,11 @@ def main():
         G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
         G.url = G.config.get("DB", "url")
         G.port = G.config.get("global", "pub_port")
+        G.username = G.config.get("splunk", "username")
+        G.password = G.config.get("splunk", "password")
+        G.splunk_host = G.config.get("splunk", "host")
+        G.splunk_port = G.config.get("splunk", "port")
+        G.splunk_index = G.config.get("splunk", "index")
     except:
         logger.error("Can't read configuration file")
         sys.exit(1)

@@ -50,11 +50,11 @@ def zmq_init(hosts, port):
     ioloop.IOLoop.instance().start()
     
 
-def main(hosts, port, url):
+def main(hosts, port, url, username, password, splunk_port, splunk_host):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
     sql.db_init(url)
-    splunk_utils.connect_to_splunk()
+    splunk_utils.connect_to_splunk(username, password, splunk_port, splunk_host)
     zmq_init(hosts, port)
 
     # we kick off the event loop with zmq_init()

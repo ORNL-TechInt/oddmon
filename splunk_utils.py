@@ -18,19 +18,21 @@ logger  = None
 class G:
     # Splunk connection stuff
     service = None
-    SPLUNK_HOST="192.168.122.1"
-    SPLUNK_PORT=8089
     SPLUNK_INDEX="brw_stats"
 
-def connect_to_splunk():
+def connect_to_splunk(username, password, port, host):
     # Prompt for the password
     # This section should get cut out once we've got the api_ddntools
     # user set up
     #SPLUNK_USER=getpass.getuser()
-    SPLUNK_USER=raw_input("Username: ")
-    SPLUNK_PWD=getpass.getpass( 'Password for user %s:'%SPLUNK_USER)
+    #SPLUNK_USER=raw_input("Username: ")
+    #SPLUNK_PWD=getpass.getpass( 'Password for user %s:'%SPLUNK_USER)
+    SPLUNK_USER = username
+    SPLUNK_PWD = password
+    SPLUNK_PORT = port
+    SPLUNK_HOST = host
 
-    G.service = client.connect( host=G.SPLUNK_HOST, port=G.SPLUNK_PORT,
+    G.service = client.connect( host=SPLUNK_HOST, port=SPLUNK_PORT,
             username=SPLUNK_USER, password=SPLUNK_PWD)
 
 
