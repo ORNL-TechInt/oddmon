@@ -78,7 +78,6 @@ class Daemon(object):
             sys.stderr.write(
                 "fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
             sys.exit(1)
-
         if sys.platform != 'darwin':  # This block breaks on OS X
             # Redirect standard file descriptors
             sys.stdout.flush()
@@ -97,7 +96,6 @@ class Daemon(object):
             self.daemon_alive = False
             signal.signal(signal.SIGTERM, sigtermhandler)
             signal.signal(signal.SIGINT, sigtermhandler)
-
         if self.verbose >= 1:
             print "Started"
 

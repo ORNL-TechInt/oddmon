@@ -1,5 +1,5 @@
 include *.py
-include oddmon.cfg.sample
+include oddmon.cfg
 include README.md
 include setup.cfg
 include collector

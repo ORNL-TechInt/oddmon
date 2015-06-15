@@ -2,25 +2,19 @@
 
 . /etc/rc.d/init.d/functions
 
-prog=oddmon
 RETVAL=0
-ODDMON=$HOME/oddmon/oddmon.py
-lockfile=/tmp/$prog
-PID_FILE=/tmp/collectd.pid
-CONF=$HOME/oddmon/oddmon.cfg.sample
-
-
-#ODDMON=/usr/bin/oddmon
-#lockfile=/var/lock/subsys/$prog
-#PIDFILE=/var/run/collectd.pid
-#CONF=/etc/oddmon/oddmon.conf
+prog=oddmon
+ODDMON=/usr/bin/monctl
+lockfile=/var/lock/subsys/$prog
+PID_FILE=/var/run/oddmon_collect.pid
+CONF=/etc/oddmon/oddmon.conf
 
 start()
 {
     [ -x $ODDMON ] || exit 5
     [ -f $CONF ] || exit 6
     
-    $ODDMON collect --cfgfile $CONF --pid $PID_FILE --start && success || failure
+    $ODDMON collect --cfgfile $CONF --pid $PID_FILE && success || failure
     RETVAL=$?
     [ $RETVAL -eq 0 ] && touch $lockfile
     echo 
@@ -58,10 +52,15 @@ case "$1" in
         stop
         ;;
     status)
-        rh_status
-        RETVAL=$?
-        if [ $RETVAL -eq 3 -a -f $lockfile ]; then
-            RETVAL=2
+#        rh_status
+#        RETVAL=$?
+#        if [ $RETVAL -eq 3 -a -f $lockfile ]; then
+#            RETVAL=2
+#        fi
+        if ps aux | grep -q [m]onctl; then
+            echo "Collector is running"
+        else
+            echo "Collector is not running"
         fi
         ;;
     *)

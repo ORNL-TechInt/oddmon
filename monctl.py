@@ -35,12 +35,12 @@ def parse_args():
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
     parent_parser.add_argument("--cfgfile", required=True,  help="configure file")
-    parent_parser.add_argument("-p", "--port", type=int, nargs=1, default=8888)
+    parent_parser.add_argument("-p", "--port", type=int, default=8888)
     parent_parser.add_argument("--stop", default=False, action="store_true")
     parent_parser.add_argument("--start", default=False, action="store_true")
     subparsers = parser.add_subparsers(help="Provide one of the sub-commands")
     collect_parser = subparsers.add_parser("collect", parents=[parent_parser], help="Run in collector mode")
-    collect_parser.add_argument("-i", "--interval", type=int, nargs=1, default=10)
+    collect_parser.add_argument("-i", "--interval", type=int, default=10)
     collect_parser.add_argument("--pid", default="collect.pid")
     collect_parser.set_defaults(func=main_collect)
     aggregate_parser = subparsers.add_parser("aggregate", parents=[parent_parser], help="Run in aggregator mode")
@@ -95,11 +95,13 @@ def setup_logging(loglevel):
     fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.setLevel(level)
 
-    logfile = None
-    if hasattr(ARGS, "collect"):
-        logfile = "LOG.collector"
+    logfile = "LOG"
+    if "main_collect" in str(ARGS.func):
+     #  logfile = "/var/log/LOG.collector"
+        pass
     else:
-        logfile = "LOG.aggregator"
+        pass
+      #  logfile = "/var/log/LOG.aggregator"
 
     file_handler = logging.FileHandler(filename=logfile, mode="w")
     file_handler.setFormatter(fmt)
