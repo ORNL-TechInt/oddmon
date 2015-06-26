@@ -5,12 +5,13 @@ A collection of utility functions for dealing with Splunk
 '''
 
 import logging
+import logging.handlers
 import json
 import ast
-import getpass
+#import getpass
 
-import splunklib.client as client
-import splunklib.results as results
+#import splunklib.client as client
+#import splunklib.results as results
 
 
 logger  = None
@@ -27,13 +28,13 @@ def connect_to_splunk(username, password, port, host):
     #SPLUNK_USER=getpass.getuser()
     #SPLUNK_USER=raw_input("Username: ")
     #SPLUNK_PWD=getpass.getpass( 'Password for user %s:'%SPLUNK_USER)
-    SPLUNK_USER = username
-    SPLUNK_PWD = password
-    SPLUNK_PORT = port
-    SPLUNK_HOST = host
+    #SPLUNK_USER = username
+    #SPLUNK_PWD = password
+    #SPLUNK_PORT = port
+    #SPLUNK_HOST = host
 
-    G.service = client.connect( host=SPLUNK_HOST, port=SPLUNK_PORT,
-            username=SPLUNK_USER, password=SPLUNK_PWD)
+    #G.service = client.connect( host=SPLUNK_HOST, port=SPLUNK_PORT,
+     #       username=SPLUNK_USER, password=SPLUNK_PWD)
 
 
 def push_to_splunk( msg):
@@ -41,7 +42,7 @@ def push_to_splunk( msg):
     logger.debug("Calling push_to_splunk...")
     blob = json.loads(msg[0])
 
-    index = G.service.indexes[G.SPLUNK_INDEX]
+    #index = G.service.indexes[G.SPLUNK_INDEX]
 
     print "-----------------------------"
     print "blob type: %s"%type(blob)
@@ -72,16 +73,22 @@ def push_to_splunk( msg):
                 logger.debug(metric)
                 value = metrics_dict[metric]
                 for k in value.keys():
-                    event_str = "snapshot_time = %f bucket=%s counts=%s" %(snapshot_time, k, value[k][0])
+                    event_str = "snapshot_time=%f bucket=%s counts=%s" %(snapshot_time, k, value[k][0])
+                    FileLogger.info("%s host=%s source=%s sourcetype=brw_stats", event_str, str(ost), str(metric))
                     # logger.debug( "event_str: %s"%event_str)
                     # Commented out - too much text even for debug
-                    index.submit( event_str, host = ost, source=metric, sourcetype="brw_stats")
+                    # index.submit( event_str, host = ost, source=metric, sourcetype="brw_stats")
 
 
 
 
-# Set up the logger
+# Set up the loggers
 logger = logging.getLogger("app.%s" % __name__)
+FileLogger = logging.getLogger("file.%s" % __name__)
+FileLogger.propagate = False
 
+#log to file until reaching 100 MB then create a new log file
+FileLogger.addHandler(logging.handlers.RotatingFileHandler("log.txt", maxBytes=1024*1024, backupCount=1))
+FileLogger.setLevel(logging.DEBUG)
 
 
