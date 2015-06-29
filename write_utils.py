@@ -1,43 +1,17 @@
 #!/usr/bin/env python
 
 '''
-A collection of utility functions for dealing with Splunk
+to be written
 '''
 
 import logging
 import logging.handlers
 import json
 import ast
-#import getpass
-
-#import splunklib.client as client
-#import splunklib.results as results
-
 
 logger  = None
 
-class G:
-    # Splunk connection stuff
-    service = None
-    SPLUNK_INDEX="brw_stats"
-
-def connect_to_splunk(username, password, port, host):
-    # Prompt for the password
-    # This section should get cut out once we've got the api_ddntools
-    # user set up
-    #SPLUNK_USER=getpass.getuser()
-    #SPLUNK_USER=raw_input("Username: ")
-    #SPLUNK_PWD=getpass.getpass( 'Password for user %s:'%SPLUNK_USER)
-    #SPLUNK_USER = username
-    #SPLUNK_PWD = password
-    #SPLUNK_PORT = port
-    #SPLUNK_HOST = host
-
-    #G.service = client.connect( host=SPLUNK_HOST, port=SPLUNK_PORT,
-     #       username=SPLUNK_USER, password=SPLUNK_PWD)
-
-
-def push_to_splunk( msg):
+def write_data(msg):
 
     logger.debug("Calling push_to_splunk...")
     blob = json.loads(msg[0])
@@ -47,7 +21,6 @@ def push_to_splunk( msg):
     print "-----------------------------"
     print "blob type: %s"%type(blob)
     print "blob keys: %s"%blob.keys()
-    #print blob[u'metric_ost_brw_stats']
     print "============================="
     print "blob[u'metric_ost_brw_stats'] type: %s"%type(blob[u'metric_ost_brw_stats'])
     print "*****************************"
@@ -64,9 +37,7 @@ def push_to_splunk( msg):
         metrics_dict = stats[ost]
         snapshot_time = float(metrics_dict["snapshot_time"])
         for metric in metrics_dict.keys():
-            # event_str = "snapshot_time = %f "%snapshot_time
 
-            # The values for the different metrics need to be handled differently
             if metric == "snapshot_time":
                 continue # snapshot_time is not a metric in and of itself
             else:
@@ -75,11 +46,6 @@ def push_to_splunk( msg):
                 for k in value.keys():
                     event_str = "snapshot_time=%f bucket=%s counts=%s" %(snapshot_time, k, value[k][0])
                     FileLogger.info("%s host=%s source=%s sourcetype=brw_stats", event_str, str(ost), str(metric))
-                    # logger.debug( "event_str: %s"%event_str)
-                    # Commented out - too much text even for debug
-                    # index.submit( event_str, host = ost, source=metric, sourcetype="brw_stats")
-
-
 
 
 # Set up the loggers
@@ -87,7 +53,7 @@ logger = logging.getLogger("app.%s" % __name__)
 FileLogger = logging.getLogger("file.%s" % __name__)
 FileLogger.propagate = False
 
-#log to file until reaching 100 MB then create a new log file
+#log to file until reaching maxBytes then create a new log file
 FileLogger.addHandler(logging.handlers.RotatingFileHandler("log.txt", maxBytes=1024*1024, backupCount=1))
 FileLogger.setLevel(logging.DEBUG)
 
