@@ -1,6 +1,1 @@
-include *.py
-include oddmon.cfg
-include README.md
-include setup.cfg
-include collector
-include aggregator
+include oddmon_aggregator.conf oddmon_collector.conf

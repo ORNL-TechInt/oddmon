@@ -25,7 +25,7 @@ setuptools.setup(name='oddmon',
     py_modules=['monctl', 'oddpub', 'oddsub','hostlist',
                 'lfs_utils', 'daemon',
                 'metric_ost_stats',
-                'metric_ost_brw_stats', 'sql', 'splunk_utils'],
+                'metric_ost_brw_stats', 'sql', 'write_utils'],
     entry_points={
         'console_scripts': [
             'monctl=monctl:main'
@@ -33,9 +33,9 @@ setuptools.setup(name='oddmon',
     },
 
     data_files=[ ('/etc/oddmon', ['oddmon.cfg']),
-                  ('share/doc/oddmon', ['README.md']),
-                ('/etc/init.d', ['collector', 'aggregator'])
-                ],
+                 ('share/doc/oddmon', ['README.md']),
+                 ('/etc/init', ['oddmon_aggregator.conf','oddmon_collector.conf'])
+               ],
     classifiers=[
             'Development Status :: 3 - Alpha',
             'Intended Audience :: System Administrators',
