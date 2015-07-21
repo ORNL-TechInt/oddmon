@@ -8,6 +8,7 @@ import json
 import ast
 import sql
 import write_utils
+import metric_ost_job_stats
 
 ARGS    = None
 logger  = None
@@ -16,7 +17,7 @@ class G:
     subscribers = []
 
 def save_msg(msg):
-
+    print "hi"
     blob = json.loads(msg[0])
     for metric, stats in blob.iteritems():
         stats = ast.literal_eval(str(stats))
@@ -39,6 +40,7 @@ def zmq_init(hosts, port):
             stream_sub = zmqstream.ZMQStream(socket_sub)
             #stream_sub.on_recv(save_msg)
             stream_sub.on_recv(write_utils.write_data)
+            #stream_sub.on_recv(metric_ost_job_stats.write_ost_stats)
             G.subscribers.append(socket_sub)
             logger.debug("Connected to %s" % pub_endpoint)
         except:
