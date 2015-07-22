@@ -15,7 +15,7 @@ logger  = None
 class G:
     timestamp = int(time.time())
     jobids = {}
-    save_dir = None
+    save_dir = ""
 
 def get_log_loc(save_dir):
     G.save_dir = save_dir
@@ -28,21 +28,6 @@ def write_data(msg):
     print "blob type: %s"%type(blob)
     print "blob keys: %s"%blob.keys()
     print "============================="
-    #print "blob[u'metric_ost_brw_stats'] type: %s"%type(blob[u'metric_ost_brw_stats'])
-    #print "*****************************"
-    #stats = ast.literal_eval(blob[u'metric_ost_brw_stats'])
-    #print "jobstats type: %s" % type(job_stats)
-    #print "jobstats keys: %s" % job_stats.keys()
-    #print "^^^^"
-    #print "Time = %d" % G.timestamp
-    #print "^^^^"
-    #print ""
-    #print "stats type: %s"%type(stats)
-    #print "stats keys(): %s"%stats.keys()
-    #print "-----------------------------"
-    #print "type of first jobstats value: %s"%type(job_stats[stats.keys()[0]])
-    #print "first jobstats value keys: %s"%stats[job_stats.keys()[0]].keys()
-    #print "============================="
 
     job_stats = ast.literal_eval(blob[u'metric_ost_job_stats'])
     brw_stats = ast.literal_eval(blob[u'metric_ost_brw_stats'])
@@ -66,9 +51,9 @@ JobLogger.propagate = False
 FileLogger.propagate = False
 
 #log to file until reaching maxBytes then create a new log file
-FileLogger.addHandler(logging.handlers.RotatingFileHandler(save_dir+"brw_log.txt", maxBytes=1024*1024, backupCount=1))
+FileLogger.addHandler(logging.handlers.RotatingFileHandler(G.save_dir+"brw_log.txt", maxBytes=1024*1024*1024, backupCount=1))
 FileLogger.setLevel(logging.DEBUG)
-JobLogger.addHandler(logging.handlers.RotatingFileHandler(save_dir+"job_log.txt", maxBytes=1024*1024, backupCount=1))
+JobLogger.addHandler(logging.handlers.RotatingFileHandler(G.save_dir+"job_log.txt", maxBytes=1024*1024*1024, backupCount=1))
 JobLogger.setLevel(logging.DEBUG)
 
 def write_brw_stats(stats):
@@ -96,14 +81,16 @@ def write_job_stats(stats):
             if job["job_id:"] in G.jobids[ost]:
                 pass
             else:
-                G.jobids[ost].append(job["job_id:"])
-                event_str =("snapshot_time=%d job_id=%d write_samples=%d write_sum=%d read_samples=%d read_sum=%d "
-                            "punch=%d setattr=%d sync=%d host=%s sourcetype=job_stats"
-                            % (int(job["snapshot_time:"]), int(job["job_id:"]), int(job["write_samples:"]), int(job["write_sum:"]),
-                                int(job["read_samples:"]), int(job["read_sum:"]), int(job["punch:"]), int(job["setattr:"]),
-                                int(job["sync:"]), str(ost))
-                            )
-                print event_str
-                JobLogger.info(event_str)
-
+                if int(job["snapshot_time:"]) > G.timestamp:
+                    G.jobids[ost].append(job["job_id:"])
+                    event_str =("snapshot_time=%d job_id=%d write_samples=%d write_sum=%d read_samples=%d read_sum=%d "
+                                "punch=%d setattr=%d sync=%d host=%s sourcetype=job_stats"
+                                % (int(job["snapshot_time:"]), int(job["job_id:"]), int(job["write_samples:"]), int(job["write_sum:"]),
+                                    int(job["read_samples:"]), int(job["read_sum:"]), int(job["punch:"]), int(job["setattr:"]),
+                                    int(job["sync:"]), str(ost))
+                                )
+                    print event_str
+                    JobLogger.info(event_str)
+                else:
+                    print "Old data"
 
