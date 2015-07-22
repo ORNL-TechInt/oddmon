@@ -38,9 +38,7 @@ def zmq_init(hosts, port):
         try:
             socket_sub.connect(pub_endpoint)
             stream_sub = zmqstream.ZMQStream(socket_sub)
-            #stream_sub.on_recv(save_msg)
             stream_sub.on_recv(write_utils.write_data)
-            #stream_sub.on_recv(metric_ost_job_stats.write_ost_stats)
             G.subscribers.append(socket_sub)
             logger.debug("Connected to %s" % pub_endpoint)
         except:
@@ -52,9 +50,10 @@ def zmq_init(hosts, port):
     ioloop.IOLoop.instance().start()
     
 
-def main(hosts, port, url, username, password, splunk_port, splunk_host):
+def main(hosts, port, url, username, password, splunk_port, splunk_host, save_dir):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
+    write_utils.get_log_loc(save_dir)
     sql.db_init(url)
     zmq_init(hosts, port)
 

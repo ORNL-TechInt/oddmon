@@ -15,11 +15,15 @@ logger  = None
 class G:
     timestamp = int(time.time())
     jobids = {}
+    save_dir = None
+
+def get_log_loc(save_dir):
+    G.save_dir = save_dir
 
 def write_data(msg):
     logger.debug("Writing data...")
     blob = json.loads(msg[0])
-
+    print G.save_dir
     print "-----------------------------"
     print "blob type: %s"%type(blob)
     print "blob keys: %s"%blob.keys()
@@ -62,9 +66,9 @@ JobLogger.propagate = False
 FileLogger.propagate = False
 
 #log to file until reaching maxBytes then create a new log file
-FileLogger.addHandler(logging.handlers.RotatingFileHandler("brw_log.txt", maxBytes=1024*1024, backupCount=1))
+FileLogger.addHandler(logging.handlers.RotatingFileHandler(save_dir+"brw_log.txt", maxBytes=1024*1024, backupCount=1))
 FileLogger.setLevel(logging.DEBUG)
-JobLogger.addHandler(logging.handlers.RotatingFileHandler("job_log.txt", maxBytes=1024*1024, backupCount=1))
+JobLogger.addHandler(logging.handlers.RotatingFileHandler(save_dir+"job_log.txt", maxBytes=1024*1024, backupCount=1))
 JobLogger.setLevel(logging.DEBUG)
 
 def write_brw_stats(stats):
