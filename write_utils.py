@@ -7,7 +7,6 @@ to be written
 import logging
 import logging.handlers
 import json
-import ast
 import time
 
 logger  = None
@@ -29,9 +28,9 @@ def write_data(msg):
     print "blob keys: %s"%blob.keys()
     print "============================="
 
-    job_stats = ast.literal_eval(blob[u'metric_ost_job_stats'])
-    brw_stats = ast.literal_eval(blob[u'metric_ost_brw_stats'])
-
+    job_stats = json.loads(blob[u'metric_ost_job_stats'])
+    brw_stats = json.loads(blob[u'metric_ost_brw_stats'])
+    
     if brw_stats:
         write_brw_stats(brw_stats)
     else:
