@@ -6,25 +6,20 @@ __version__ = "0.1"
 
 """
 import sys
-import os.path
 import time
 import logging
 import zmq
-import glob
-import imp
 import json
+import plugins
 
 # Globals
 logger  = None
 ARGS    = None
 
 class G:
-
     context = None
     publisher = None
     config = None
-    plugins = {}
-    callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
 
 def zmq_init(port=8888):
     pub = "tcp://*:%s" % port
@@ -47,34 +42,12 @@ def zmq_init(port=8888):
     logger.debug("Bind to %s" % pub)
 
 def sig_handler(signal, frame):
-
     print "\tUser cancelled ... cleaning up"
-    plugin_cleanup()
+    plugins.cleanup()
     sys.exit(0)
 
 
-def plugin_scan(pathname):
 
-    pathname = os.path.realpath(pathname) + "/metric*.py"
-    logger.debug("Plugin path: %s" % pathname)
-    sources = glob.glob(pathname)
-
-    for s in sources:
-        name = os.path.basename(s).split(".")[0]
-        mod = imp.load_source(name, s)
-        if set(G.callbacks).issubset(set(dir(mod))):
-            G.plugins[name] = mod
-            logger.info("Registering plugin: %s" % name)
-        else:
-            logger.warn("Skipping %s" % name)
-
-def plugin_init():
-    for name, mod in G.plugins.iteritems():
-        mod.metric_init(name)
-
-def plugin_cleanup():
-    for name, mod in G.plugins.iteritems():
-        mod.metric_cleanup()
 
 
 def main():
@@ -85,12 +58,12 @@ def main():
 
     # initialize all metric modules
 
-    plugin_scan(".")
-    plugin_init()
+    plugins.scan(".")
+    plugins.init()
 
     while True:
         merged = {}
-        for name, mod in G.plugins.iteritems():
+        for name, mod in plugins.G.plugins.iteritems():
             msg = None
             try:
                 msg = mod.get_stats()
@@ -108,7 +81,7 @@ def main():
         time.sleep(ARGS.interval)
 
 
-    plugin_cleanup()
+    plugins.cleanup()
 
 if __name__ == "__main__": main()
 
