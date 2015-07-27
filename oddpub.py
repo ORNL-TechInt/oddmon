@@ -63,7 +63,7 @@ def main():
 
     while True:
         merged = {}
-        for name, mod in plugins.G.plugins.iteritems():
+        for name, mod in plugins.found():
             msg = None
             try:
                 msg = mod.get_stats()
