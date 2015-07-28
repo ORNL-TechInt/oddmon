@@ -2,15 +2,18 @@
 
 import os
 import logging
+import logging.handlers
 import json
 import time
+import ConfigParser
 from collections import defaultdict
 try:
     from oddmon import lfs_utils
 except:
     import lfs_utils
 
-logger = None
+logger = None  # used for normal logging messages
+stats_logger = None # the logger we use to write the stats data
 
 class G:
     fsname = None
@@ -18,15 +21,45 @@ class G:
     stats = defaultdict(lambda: defaultdict(int))
     buf = None
     timestamp = 0
+    jobids = {}
+    save_dir = None
 
-def metric_init(name, loglevel=logging.DEBUG):
-    global logger
-    #G.timestamp = int(time.time())
-    logger = logging.getLogger("main.%s" % __name__)
-    G.fsname, G.ostnames = lfs_utils.scan_osts()
 
-def metric_cleanup():
+
+def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG):
+    global logger, stats_logger
+    logger = logging.getLogger("app.%s" % __name__)
+    
+    rv = True;
+    if is_subscriber == False:
+        G.fsname, G.ostnames = lfs_utils.scan_osts()   
+    else:
+        # config file is only needed for the location of the
+        # stats_logger file, and that's only needed on the 
+        # subscriber side
+        config = ConfigParser.SafeConfigParser()
+        try:
+            config.read(config_file)
+            G.save_dir = config.get(name, "save_dir")
+            
+            #log to file until reaching maxBytes then create a new log file
+            stats_logger = logging.getLogger("brw_stats.%s" % __name__)
+            stats_logger.propagate = False
+            stats_logger_name = G.save_dir+os.sep+"job_log.txt"
+            logger.debug("Stats data saved to: %s"%stats_logger_name)
+            stats_logger.addHandler(logging.handlers.RotatingFileHandler(stats_logger_name, maxBytes=1024*1024*1024, backupCount=1))
+            stats_logger.setLevel(logging.DEBUG)
+        except Exception, e:
+            logger.error("Can't read configuration file")
+            logger.error("Exception: %s"%e)
+            rv = False;
+
+    return rv;
+
+
+def metric_cleanup( is_subscriber = False):
     pass
+
 
 def get_stats():
     if G.fsname is None:
@@ -36,6 +69,34 @@ def get_stats():
     update()
 
     return json.dumps(G.stats)
+
+
+def save_stats( msg):
+    stats = json.loads(msg)
+    
+    for ost in stats.keys():
+        if ost in G.jobids.keys():
+            pass
+        else:
+            G.jobids[ost] = []
+        jobList = stats[ost]
+        for job in jobList:
+            if job["job_id:"] in G.jobids[ost]:
+                pass
+            else:
+                if int(job["snapshot_time:"]) > G.timestamp:
+                    G.jobids[ost].append(job["job_id:"])
+                    event_str =("snapshot_time=%d job_id=%d write_samples=%d write_sum=%d read_samples=%d read_sum=%d "
+                                "punch=%d setattr=%d sync=%d host=%s sourcetype=job_stats"
+                                % (int(job["snapshot_time:"]), int(job["job_id:"]), int(job["write_samples:"]), int(job["write_sum:"]),
+                                    int(job["read_samples:"]), int(job["read_sum:"]), int(job["punch:"]), int(job["setattr:"]),
+                                    int(job["sync:"]), str(ost))
+                                )
+                    print event_str
+                    stats_logger.info(event_str)
+                else:
+                    print "Old data"
+
 
 def update():
     for ost in G.ostnames:

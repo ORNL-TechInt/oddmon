@@ -2,7 +2,32 @@
 __version__ = "0.1"
 """
 Plugin support for oddpub & oddsub
+
+Plugin protocol documentation:
+
+Plugins must define 4 functions:
+
+def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG)   
+def metric_cleanup( is_subscriber = False)
+def get_stats()
+def save_stats( msg)
+
+
+metric_init returns True if it initialized properly.
+get_stats() returns the data that is to be published.  (Currently all plugins
+use JSON-encoded text, but that's probably not actually necessary.)
+
+The other functions return nothing.
+
+get_stats() is called by the publisher.  save_stats() is called by the
+subscriber.  metric_init() and metric_cleanup() are called by both.
+
+The data that get_stats() returns (on the publisher side) is passed to
+save_stats() (on the subscriber side).  It's up to save_stats() to do
+something useful with the data.
 """
+
+#TODO: Should we switch to using kwargs for the plugin callback functions?
 
 import os.path
 import imp
@@ -11,7 +36,7 @@ import glob
 
 class _G:
     plugins = {}
-    callbacks = ['metric_init', 'get_stats', 'metric_cleanup']
+    callbacks = ['metric_init', 'get_stats', 'save_stats', 'metric_cleanup']
 
 def scan(pathname):
 
@@ -29,13 +54,19 @@ def scan(pathname):
         else:
             logger.warn("Skipping %s" % name)
 
-def init():
-    for name, mod in _G.plugins.iteritems():
-        mod.metric_init(name)
+def init( config_file, is_subscriber = False):
+    names = _G.plugins.keys();
+    for name in names:
+       if (_G.plugins[name].metric_init(name, config_file, is_subscriber) == False):
+           logger = logging.getLogger("app.%s" % __name__)
+           logger.warn( "%s failed to initialize.  Removing from pluins list"%
+                         name)
+           _G.plugins.pop(name)
+           
 
-def cleanup():
+def cleanup( is_subscriber = False):
     for name, mod in _G.plugins.iteritems():
-        mod.metric_cleanup()
+        mod.metric_cleanup( is_subscriber)
         
 def found():
     '''

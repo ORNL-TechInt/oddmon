@@ -50,16 +50,15 @@ def sig_handler(signal, frame):
 
 
 
-def main():
+def main( config_file):
     global logger, ARGS
     logger = logging.getLogger("app.%s" % __name__)
 
     zmq_init()
 
     # initialize all metric modules
-
     plugins.scan(".")
-    plugins.init()
+    plugins.init( config_file, False)
 
     while True:
         merged = {}
@@ -81,7 +80,7 @@ def main():
         time.sleep(ARGS.interval)
 
 
-    plugins.cleanup()
+    plugins.cleanup( False)
 
 if __name__ == "__main__": main()
 

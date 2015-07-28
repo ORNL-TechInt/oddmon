@@ -48,7 +48,7 @@ def update():
         if ret:
             G.stats[ost] = ret
 
-def metric_init(name, loglevel=logging.DEBUG):
+def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
     G.fsname, G.ostnames = lfs_utils.scan_osts()
@@ -63,8 +63,12 @@ def get_stats():
 
     return json.dumps(G.stats)
 
+def save_stats( msg):
+    logger = logging.getLogger("app.%s" % __name__)
+    logger.warning("save_stats() unimplemented!")
 
-def metric_cleanup():
+
+def metric_cleanup(is_subscriber = False):
     pass
 
 if __name__ == '__main__':

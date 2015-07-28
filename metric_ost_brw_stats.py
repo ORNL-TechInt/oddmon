@@ -2,6 +2,8 @@
 
 import os
 import logging
+import logging.handlers
+import ConfigParser
 import json
 import time
 from collections import defaultdict
@@ -11,14 +13,15 @@ except:
     import lfs_utils
 
 # Globals
-
-logger = None
+logger = None  # used for normal logging messages
+stats_logger = None # the logger we use to write the stats data
 
 class G:
     fsname = None
     ostnames = None
     stats = defaultdict(lambda: defaultdict(int))
     buf = None
+    save_dir = None
 
 def extract_snaptime(ret):
     idx = G.buf.index('\n')
@@ -97,18 +100,46 @@ def read_brw_stats(f):
 
 
 def update():
-
     for ost in G.ostnames:
         fpath = '/proc/fs/lustre/obdfilter/' + ost
         ret = read_brw_stats(fpath)
         if ret: G.stats[ost] = ret
 
 
-def metric_init(name, loglevel=logging.DEBUG):
-    global logger
-    logger = logging.getLogger("main.%s" % __name__)
-    G.fsname, G.ostnames = lfs_utils.scan_osts()
+def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG):
+    global logger, stats_logger
+    logger = logging.getLogger("app.%s" % __name__)
+    
+    rv = True;
+    if is_subscriber == False:
+        G.fsname, G.ostnames = lfs_utils.scan_osts()   
+    else:
+        # config file is only needed for the location of the
+        # stats_logger file, and that's only needed on the 
+        # subscriber side
+        config = ConfigParser.SafeConfigParser()
+        try:
+            config.read(config_file)
+            G.save_dir = config.get(name, "save_dir")
+        except Exception, e:
+            logger.error("Can't read configuration file")
+            logger.error("Exception: %s"%e)
+            rv = False;
 
+        #log to file until reaching maxBytes then create a new log file
+        stats_logger = logging.getLogger("brw_stats.%s" % __name__)
+        stats_logger.propagate = False
+        stats_logger_name = G.save_dir+os.sep+"brw_log.txt"
+        logger.debug("Stats data saved to: %s"%stats_logger_name)
+        stats_logger.addHandler(logging.handlers.RotatingFileHandler(stats_logger_name, maxBytes=1024*1024*1024, backupCount=1))
+        stats_logger.setLevel(logging.DEBUG)
+
+    return rv;
+    
+def metric_cleanup( is_subscriber = False):
+    pass
+
+    
 def get_stats():
     if G.fsname is None:
         logger.error("No valid file system ... skip")
@@ -117,8 +148,25 @@ def get_stats():
     update()
     return json.dumps(G.stats)
 
-def metric_cleanup():
-    pass
+
+def save_stats( msg):
+    brw_stats = json.loads(msg)
+    for ost in brw_stats.keys():
+        metrics_dict = brw_stats[ost]
+        snapshot_time = float(metrics_dict["snapshot_time"])
+        for metric in metrics_dict.keys():
+            if metric == "snapshot_time":
+                continue # snapshot_time is not a metric in and of itself
+            else:
+                logger.debug(metric)
+                value = metrics_dict[metric]
+                for k in value.keys():
+                    event_str = "snapshot_time=%f bucket=%s counts=%s" %(snapshot_time, k, value[k][0])
+                    stats_logger.info("%s host=%s source=%s sourcetype=brw_stats", event_str, str(ost), str(metric))
+    
+    
+
+
 
 if __name__ == '__main__':
     # Set up a basic logging handler to use
