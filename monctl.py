@@ -10,7 +10,6 @@ import signal
 import logging
 import ConfigParser
 import argparse
-import hostlist
 from daemon import Daemon
 
 # Globals
@@ -18,11 +17,7 @@ logger  = logging.getLogger("app")
 ARGS    = None
 
 class G:
-    hosts = None
-    config = None
     config_file = None
-    url = None
-    port = None
     fmt = None
     console_handler = None
     file_handler = None
@@ -34,7 +29,6 @@ def parse_args():
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
     parent_parser.add_argument("--cfgfile", required=True,  help="configure file")
-    parent_parser.add_argument("-p", "--port", type=int, default=8888)
     parent_parser.add_argument("--stop", default=False, action="store_true")
     parent_parser.add_argument("--start", default=False, action="store_true")
     subparsers = parser.add_subparsers(help="Provide one of the sub-commands")
@@ -62,7 +56,7 @@ class AggregateDaemon(Daemon):
     def run(self):
         import oddsub
         oddsub.ARGS = ARGS
-        oddsub.main(G.config_file, G.hosts, G.port, G.url)
+        oddsub.main(G.config_file)
 
 
 def handle(p):
@@ -86,7 +80,6 @@ def main_collect():
 
 
 def setup_logging(loglevel):
-
     global logger
 
     level = getattr(logging, loglevel.upper())
@@ -110,6 +103,8 @@ def setup_logging(loglevel):
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
     logger.propagate = False
+    
+    
 def main():
     global logger, ARGS
 
@@ -124,16 +119,7 @@ def main():
 
     logger.debug(ARGS)
 
-    G.config = ConfigParser.SafeConfigParser()
-    try:
-        G.config.read(ARGS.cfgfile)
-        G.config_file = ARGS.cfgfile
-        G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
-        G.url = G.config.get("DB", "url")
-        G.port = G.config.get("global", "pub_port")
-    except:
-        logger.error("Can't read configuration file")
-        sys.exit(1)
+    G.config_file = ARGS.cfgfile
 
     ARGS.func()
 

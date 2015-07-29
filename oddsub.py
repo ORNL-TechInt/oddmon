@@ -9,7 +9,8 @@ import ast
 import sql
 import write_utils
 import plugins
-import metric_ost_job_stats
+import ConfigParser
+import hostlist
 
 ARGS    = None
 logger  = None
@@ -68,9 +69,23 @@ def zmq_init(hosts, port):
     ioloop.IOLoop.instance().start()
     
 
-def main(config_file, hosts, port, url):
+def main(config_file):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
+    
+    config = ConfigParser.SafeConfigParser()
+    try:
+        config.read(config_file)
+        hosts = hostlist.expand_hostlist(config.get("global", "pub_hosts"))
+        port = int(config.get("global", "pub_port"))
+        url = config.get("DB", "url")
+        logger.debug( "Hosts: %s" % hosts)
+        logger.debug( "Port: %d" % port)
+    except Exception, e:
+        logger.error("Can't read configuration file")
+        logger.error("Reason: %s" % e)
+        sys.exit(1)
+    
     sql.db_init(url)
     
     # fiand and initialize all plugin modules

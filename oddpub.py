@@ -11,6 +11,7 @@ import logging
 import zmq
 import json
 import plugins
+import ConfigParser
 
 # Globals
 logger  = None
@@ -54,7 +55,16 @@ def main( config_file):
     global logger, ARGS
     logger = logging.getLogger("app.%s" % __name__)
 
-    zmq_init()
+    config = ConfigParser.SafeConfigParser()
+    try:
+        config.read(config_file)
+        port = int(config.get("global", "pub_port"))
+    except Exception, e:
+        logger.error("Can't read configuration file")
+        logger.error("Reason: %s" % e)
+        sys.exit(1)
+
+    zmq_init( port)
 
     # initialize all metric modules
     plugins.scan(".")
