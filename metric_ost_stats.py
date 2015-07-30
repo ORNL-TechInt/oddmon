@@ -12,10 +12,39 @@ except:
 
 logger = None
 
+
 class G:
     fsname = None
     ostnames = None
     stats = defaultdict(lambda: defaultdict(int))
+
+
+def metric_init(name, config_file, is_subscriber=False,
+                loglevel=logging.DEBUG):
+    global logger
+    logger = logging.getLogger("app.%s" % __name__)
+    G.fsname, G.ostnames = lfs_utils.scan_osts()
+
+
+def metric_cleanup(is_subscriber=False):
+    pass
+
+
+def get_stats():
+
+    if G.fsname is None:
+        logger.error("No valid file system ... skip")
+        return ""
+
+    update()
+
+    return json.dumps(G.stats)
+
+
+def save_stats(msg):
+    logger = logging.getLogger("app.%s" % __name__)
+    logger.warning("save_stats() unimplemented!")
+
 
 def read_ost_stats(f):
     """
@@ -40,6 +69,7 @@ def read_ost_stats(f):
 
     return ret
 
+
 def update():
 
     for ost in G.ostnames:
@@ -48,28 +78,6 @@ def update():
         if ret:
             G.stats[ost] = ret
 
-def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG):
-    global logger
-    logger = logging.getLogger("app.%s" % __name__)
-    G.fsname, G.ostnames = lfs_utils.scan_osts()
-
-def get_stats():
-
-    if G.fsname is None:
-        logger.error("No valid file system ... skip")
-        return ""
-
-    update()
-
-    return json.dumps(G.stats)
-
-def save_stats( msg):
-    logger = logging.getLogger("app.%s" % __name__)
-    logger.warning("save_stats() unimplemented!")
-
-
-def metric_cleanup(is_subscriber = False):
-    pass
 
 if __name__ == '__main__':
     metric_init("ost-stats")
@@ -77,4 +85,3 @@ if __name__ == '__main__':
         print get_stats()
         time.sleep(5)
     metric_cleanup()
-

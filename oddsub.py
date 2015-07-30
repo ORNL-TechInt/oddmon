@@ -2,8 +2,6 @@
 
 import sys
 import logging
-import zmq
-from zmq.eventloop import ioloop, zmqstream
 import json
 import ast
 import sql
@@ -11,6 +9,8 @@ import write_utils
 import plugins
 import metric_ost_job_stats
 import pika
+import ConfigParser
+import hostlist
 
 ARGS    = None
 logger  = None
@@ -57,7 +57,7 @@ def on_channel_open(new_channel):
     """Called when our channel has opened"""
     global channel
     channel = new_channel
-    channel.queue_declare(queue="oddmon", durable=True, exclusive=False, auto_delete=False, callback=on_queue_declared)
+    channel.queue_declare(queue=G.queue, durable=True, exclusive=False, auto_delete=False, callback=on_queue_declared)
 
 def on_queue_declared(frame):
     """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
@@ -65,15 +65,13 @@ def on_queue_declared(frame):
 
 def handle_delivery(channel, method, header, body):
     """Called when we receive a message from RabbitMQ"""
-    print type(body)
     handle_incoming(body)
     channel.basic_ack(delivery_tag = method.delivery_tag)
 
-def zmq_init(hosts, port, username, password):
+def rmq_init(username, password):
     """
     Setup async call back on receiving
     """
-
     parameters = pika.ConnectionParameters(credentials=pika.PlainCredentials(username, password), host="localhost")
     connection = pika.SelectConnection(parameters, on_connected)
 
@@ -83,20 +81,33 @@ def zmq_init(hosts, port, username, password):
         connection.close()
         connection.ioloop.start()
 
-def main(config_file, hosts, port, url, username, password, queue):
+def main(config_file):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
+    
+    config = ConfigParser.SafeConfigParser()
+    try:
+        config.read(config_file)
+        hosts = hostlist.expand_hostlist(config.get("global", "pub_hosts"))
+        url = config.get("DB", "url")
+        username = config.get("rabbitmq", "username")
+        password = config.get("rabbitmq", "password")
+        G.queue = config.get("rabbitmq", "queue")
+        logger.debug( "Hosts: %s" % hosts)
+    except Exception, e:
+        logger.error("Can't read configuration file")
+        logger.error("Reason: %s" % e)
+        sys.exit(1)
+    
     sql.db_init(url)
-
-    G.queue = queue
 
     # fiand and initialize all plugin modules
     plugins.scan(".")
     plugins.init( config_file, True)
     
-    zmq_init(hosts, port, username, password)
+    rmq_init(username, password)
 
-    # we kick off the event loop with zmq_init()
+    # we kick off the event loop with rmq_init()
     # after that, all we have to do is sit tight
     
     #TODO: Intercept Ctrl-C and run plugins.cleanup( True)
