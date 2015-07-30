@@ -10,15 +10,19 @@ import sql
 import write_utils
 import plugins
 import metric_ost_job_stats
+import pika
 
 ARGS    = None
 logger  = None
 
 class G:
     subscribers = []
+    channel = None
+    parameters = None
+    connection = None
+    queue = None
 
 def save_msg(msg):
-    print "hi"
     blob = json.loads(msg[0])
     for metric, stats in blob.iteritems():
         stats = ast.literal_eval(str(stats))
@@ -29,7 +33,7 @@ def save_msg(msg):
             
 def handle_incoming( msg):
     #msg is a list (with just one element) of JSON-encoded strings   
-    blob = json.loads(msg[0])
+    blob = json.loads(msg)
     print "-----------------------------"
     print "blob type: %s"%type(blob)
     print "blob keys: %s"%blob.keys()
@@ -44,40 +48,53 @@ def handle_incoming( msg):
 
     # TODO: ought to check that there were no unhandled items in msg...
 
-def zmq_init(hosts, port):
+def on_connected(connection):
+    """Called when we are fully connected to RabbitMQ"""
+    # Open a channel
+    connection.channel(on_channel_open)
+
+def on_channel_open(new_channel):
+    """Called when our channel has opened"""
+    global channel
+    channel = new_channel
+    channel.queue_declare(queue="oddmon", durable=True, exclusive=False, auto_delete=False, callback=on_queue_declared)
+
+def on_queue_declared(frame):
+    """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
+    channel.basic_consume(handle_delivery, queue=G.queue)
+
+def handle_delivery(channel, method, header, body):
+    """Called when we receive a message from RabbitMQ"""
+    print type(body)
+    handle_incoming(body)
+    channel.basic_ack(delivery_tag = method.delivery_tag)
+
+def zmq_init(hosts, port, username, password):
     """
     Setup async call back on receiving
     """
-    context = zmq.Context()
-    for host in hosts:
-        socket_sub = context.socket(zmq.SUB)
-        socket_sub.setsockopt(zmq.SUBSCRIBE, "")
-        pub_endpoint =  "tcp://%s:%s" % (host, port)
-        try:
-            socket_sub.connect(pub_endpoint)
-            stream_sub = zmqstream.ZMQStream(socket_sub)
-            stream_sub.on_recv( handle_incoming)
-            G.subscribers.append(socket_sub)
-            logger.debug("Connected to %s" % pub_endpoint)
-        except:
-            logger.error("Failed to connect: %s", pub_endpoint)
-            sys.exit(1)
 
+    parameters = pika.ConnectionParameters(credentials=pika.PlainCredentials(username, password), host="localhost")
+    connection = pika.SelectConnection(parameters, on_connected)
 
-    # kick off event loop
-    ioloop.IOLoop.instance().start()
-    
+    try:
+        connection.ioloop.start()
+    except KeyboardInterrupt:
+        connection.close()
+        connection.ioloop.start()
 
-def main(config_file, hosts, port, url):
+def main(config_file, hosts, port, url, username, password, queue):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
     sql.db_init(url)
-    
+
+    G.queue = queue
+
     # fiand and initialize all plugin modules
     plugins.scan(".")
     plugins.init( config_file, True)
     
-    zmq_init(hosts, port)
+    zmq_init(hosts, port, username, password)
 
     # we kick off the event loop with zmq_init()
     # after that, all we have to do is sit tight

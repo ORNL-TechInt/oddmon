@@ -26,7 +26,11 @@ class G:
     fmt = None
     console_handler = None
     file_handler = None
-
+    username = None
+    password = None
+    broker = None
+    routing_key = None
+    queue = None
 
 def parse_args():
     parser = argparse.ArgumentParser(description="ODDMON program")
@@ -56,13 +60,13 @@ class CollectDaemon(Daemon):
     def run(self):
         import oddpub
         oddpub.ARGS = ARGS
-        oddpub.main(G.config_file)
+        oddpub.main(G.config_file, G.broker, G.routing_key)
 
 class AggregateDaemon(Daemon):
     def run(self):
         import oddsub
         oddsub.ARGS = ARGS
-        oddsub.main(G.config_file, G.hosts, G.port, G.url)
+        oddsub.main(G.config_file, G.hosts, G.port, G.url, G.username, G.password, G.queue)
 
 
 def handle(p):
@@ -131,6 +135,11 @@ def main():
         G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
         G.url = G.config.get("DB", "url")
         G.port = G.config.get("global", "pub_port")
+        G.broker = G.config.get("rabbitmq", "broker")
+        G.username = G.config.get("rabbitmq", "username")
+        G.password = G.config.get("rabbitmq", "password")
+        G.routing_key = G.config.get("rabbitmq", "routing_key")
+        G.queue = G.config.get("rabbitmq", "queue")
     except:
         logger.error("Can't read configuration file")
         sys.exit(1)
