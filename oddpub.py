@@ -45,7 +45,7 @@ def main( config_file):
     config = ConfigParser.SafeConfigParser()
     try:
         config.read(config_file)
-        broker = config.get("rabbitmq", "broker"))
+        broker = config.get("rabbitmq", "broker")
         G.routing_key = config.get("rabbitmq", "routing_key")
         rmq_init(broker)
     except Exception, e:

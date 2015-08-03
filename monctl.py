@@ -127,15 +127,15 @@ def main():
     try:
         G.config.read(ARGS.cfgfile)
         G.config_file = ARGS.cfgfile
-        G.hosts = hostlist.expand_hostlist(G.config.get("global", "pub_hosts"))
         G.url = G.config.get("DB", "url")
         G.broker = G.config.get("rabbitmq", "broker")
         G.username = G.config.get("rabbitmq", "username")
         G.password = G.config.get("rabbitmq", "password")
         G.routing_key = G.config.get("rabbitmq", "routing_key")
         G.queue = G.config.get("rabbitmq", "queue")
-    except:
+    except Exception, e:
         logger.error("Can't read configuration file")
+        logger.error("Reason: %s" % e)
         sys.exit(1)
 
     ARGS.func()

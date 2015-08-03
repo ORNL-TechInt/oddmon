@@ -88,12 +88,10 @@ def main(config_file):
     config = ConfigParser.SafeConfigParser()
     try:
         config.read(config_file)
-        hosts = hostlist.expand_hostlist(config.get("global", "pub_hosts"))
         url = config.get("DB", "url")
         username = config.get("rabbitmq", "username")
         password = config.get("rabbitmq", "password")
         G.queue = config.get("rabbitmq", "queue")
-        logger.debug( "Hosts: %s" % hosts)
     except Exception, e:
         logger.error("Can't read configuration file")
         logger.error("Reason: %s" % e)
@@ -101,7 +99,7 @@ def main(config_file):
     
     sql.db_init(url)
 
-    # fiand and initialize all plugin modules
+    # find and initialize all plugin modules
     plugins.scan(".")
     plugins.init( config_file, True)
     
