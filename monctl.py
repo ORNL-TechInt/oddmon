@@ -108,6 +108,17 @@ def setup_logging(loglevel):
     logger.addHandler(file_handler)
     logger.propagate = False
     
+    # Configure the logger settings for pika to match what we've
+    # just set up.  (Pika is the AMQP client library)
+    #logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)   
+    pika_logger = logging.getLogger("pika")
+    if level == logging.DEBUG:
+        level = logging.INFO # pika's DEBUG is really too verbose for us
+    pika_logger.setLevel( level)
+    for h in logger.handlers:
+        pika_logger.addHandler(h)
+    
+    
     
 def main():
     global logger, ARGS
