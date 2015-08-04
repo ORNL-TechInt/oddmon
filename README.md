@@ -3,7 +3,7 @@
 ## Dependencies
 
         - if python < 2.5, then we need `argparse` package
-        - pyzmq 
+        - pika (RabbitMQ client library) 
 
 ## Build binary rpm package
 

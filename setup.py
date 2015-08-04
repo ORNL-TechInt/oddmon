@@ -5,9 +5,6 @@ import sys
 
 # plugins = glob.glob("metric*.py")
 
-requires = [
-        'pyzmq',
-        'argparse']
 if sys.version_info[:3] < (2,6,0):
     raise RuntimeError("This application requires Python 2.6+")
 
@@ -22,10 +19,10 @@ setuptools.setup(name='oddmon',
     version='0.1',
     author='Feiyi Wang, Ross Miller, Jeremy Anantharaj',
     author_email='fwang2@ornl.gov, rgmiller@ornl.gov, anantharajjd@ornl.gov',
-    py_modules=['monctl', 'oddpub', 'oddsub','hostlist',
+    py_modules=['monctl', 'oddpub', 'oddsub','hostlist', 'plugins',
                 'lfs_utils', 'daemon',
-                'metric_ost_stats',
-                'metric_ost_brw_stats', 'sql', 'write_utils'],
+                'metric_ost_stats', 'metric_ost_job_stats',
+                'metric_ost_brw_stats', 'sql'],
     entry_points={
         'console_scripts': [
             'monctl=monctl:main'
@@ -44,7 +41,6 @@ setuptools.setup(name='oddmon',
             'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
       ],
-    install_requires = requires,
     long_description=details
       )
 

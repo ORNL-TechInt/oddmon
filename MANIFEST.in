@@ -1,1 +1,1 @@
-include oddmon_aggregator.conf oddmon_collector.conf
+include oddmon_aggregator.conf oddmon_collector.conf oddmon.cfg README.md

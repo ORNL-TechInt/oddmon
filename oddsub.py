@@ -5,7 +5,6 @@ import logging
 import json
 import ast
 import sql
-import write_utils
 import plugins
 import metric_ost_job_stats
 import pika
