@@ -10,8 +10,9 @@ import time
 import logging
 import json
 import plugins
-import pika
 import ConfigParser
+import pika  # RabbitMQ client library
+import ssl   # for encrypted connections to the RabbitMQ broker
 
 # Globals
 logger  = None
@@ -20,13 +21,50 @@ ARGS    = None
 class G:
     config = None
     channel = None
-    parameters = None
     connection = None
-    routing_key = None
 
-def rmq_init(broker):
-    G.parameters = pika.ConnectionParameters(host=broker)
-    G.connection = pika.BlockingConnection(G.parameters)
+
+def rmq_init(config):
+    '''
+    Connect to the rabbitmq broker.
+    
+    config is a ConfigParser object that has already been set up. (That is,
+    config.read() has been successfully called.)
+    '''   
+    try:
+        broker = config.get("rabbitmq", "broker")
+        username = config.get("rabbitmq", "username")
+        password = config.get("rabbitmq", "password")
+        routing_key = config.get("rabbitmq", "routing_key")
+        port = config.getint("rabbitmq", "port")
+        virt_host = config.get("rabbitmq", "virt_host")
+        use_ssl = config.getboolean("rabbitmq", "use_ssl")
+    except Exception, e:
+        logger.critical('Failed to parse the "rabbitmq" section of the config file.')
+        logger.critical('Reason: %s' % e)
+        sys.exit(1)
+    
+    if use_ssl:
+    # ToDo: These ssl settings are specific to rmq1.ccs.ornl.gov
+    # I don't know if they're correct for other brokers
+        ssl_opts=({"ca_certs"   : "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+                "cert_reqs"  : ssl.CERT_REQUIRED,
+                "server_side": False})
+    else:
+        ssl_opts = None
+    
+    creds = pika.PlainCredentials( username, password)
+
+    # broker is the hostname of the broker
+    # "/lustre" is the namespace
+    parameters = pika.ConnectionParameters(
+        host=broker,
+        port=port,
+        virtual_host=virt_host,
+        credentials = creds,
+        ssl=use_ssl,
+        ssl_options=ssl_opts)
+    G.connection = pika.BlockingConnection(parameters)
     G.channel = G.connection.channel()
 
 def sig_handler(signal, frame):
@@ -45,13 +83,13 @@ def main( config_file):
     config = ConfigParser.SafeConfigParser()
     try:
         config.read(config_file)
-        broker = config.get("rabbitmq", "broker")
-        G.routing_key = config.get("rabbitmq", "routing_key")
-        rmq_init(broker)
     except Exception, e:
-        logger.error("Can't read configuration file")
-        logger.error("Reason: %s" % e)
+        logger.critical("Can't read configuration file")
+        logger.critical("Reason: %s" % e)
         sys.exit(1)
+
+    # This will throw an exception if it fails to connect
+    rmq_init(config)
 
     # initialize all metric modules
     plugins.scan(".")
