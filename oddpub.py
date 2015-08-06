@@ -41,6 +41,8 @@ def rmq_init(config):
         port = config.getint("rabbitmq", "port")
         virt_host = config.get("rabbitmq", "virt_host")
         use_ssl = config.getboolean("rabbitmq", "use_ssl")
+        
+        G.routing_key = config.get("rabbitmq", "routing_key")
     except Exception, e:
         logger.critical('Failed to parse the "rabbitmq" section of the config file.')
         logger.critical('Reason: %s' % e)
@@ -109,7 +111,8 @@ def main( config_file):
 
         if len(merged) > 0:
             logger.debug("publish: %s" % merged)
-            G.channel.basic_publish(exchange='', routing_key=G.routing_key, body=(json.dumps(merged)))
+            G.channel.basic_publish(exchange='', routing_key=G.routing_key,
+                                    body=(json.dumps(merged)))
         else:
             logger.warn("Empty stats")
 

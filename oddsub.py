@@ -6,10 +6,11 @@ import json
 import ast
 import sql
 import plugins
-import metric_ost_job_stats
-import pika
 import ConfigParser
 import hostlist
+import pika
+import ssl   # for encrypted connections to the RabbitMQ broker
+import os
 
 ARGS    = None
 logger  = None
@@ -67,11 +68,48 @@ def handle_delivery(channel, method, header, body):
     handle_incoming(body)
     channel.basic_ack(delivery_tag = method.delivery_tag)
 
-def rmq_init(username, password):
-    """
-    Setup async call back on receiving
-    """
-    parameters = pika.ConnectionParameters(credentials=pika.PlainCredentials(username, password), host="localhost")
+def rmq_init(config):
+    '''
+    Connect to the rabbitmq broker and then loop waiting on received data.
+    
+    config is a ConfigParser object that has already been set up. (That is,
+    config.read() has been successfully called.)
+    '''   
+    try:
+        broker = config.get("rabbitmq", "broker")
+        username = config.get("rabbitmq", "username")
+        password = config.get("rabbitmq", "password")
+        port = config.getint("rabbitmq", "port")
+        virt_host = config.get("rabbitmq", "virt_host")
+        use_ssl = config.getboolean("rabbitmq", "use_ssl")
+        
+        G.queue = config.get("rabbitmq", "queue")
+    except Exception, e:
+        logger.critical('Failed to parse the "rabbitmq" section of the config file.')
+        logger.critical('Reason: %s' % e)
+        sys.exit(1)
+    
+    if use_ssl:
+    # ToDo: These ssl settings are specific to rmq1.ccs.ornl.gov
+    # I don't know if they're correct for other brokers
+        ssl_opts=({"ca_certs"   : "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+                "cert_reqs"  : ssl.CERT_REQUIRED,
+                "server_side": False})
+    else:
+        ssl_opts = None
+    
+    creds = pika.PlainCredentials( username, password)
+
+    # broker is the hostname of the broker
+    # "/lustre" is the namespace
+    parameters = pika.ConnectionParameters(
+        host="localhost",
+        credentials=creds)
+        port=port,
+        virtual_host=virt_host,
+        credentials = creds,
+        ssl=use_ssl,
+        ssl_options=ssl_opts)
     connection = pika.SelectConnection(parameters, on_connected)
 
     try:
@@ -88,9 +126,6 @@ def main(config_file):
     try:
         config.read(config_file)
         url = config.get("DB", "url")
-        username = config.get("rabbitmq", "username")
-        password = config.get("rabbitmq", "password")
-        G.queue = config.get("rabbitmq", "queue")
     except Exception, e:
         logger.error("Can't read configuration file")
         logger.error("Reason: %s" % e)
@@ -99,10 +134,10 @@ def main(config_file):
     sql.db_init(url)
 
     # find and initialize all plugin modules
-    plugins.scan(".")
+    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/plugins")
     plugins.init( config_file, True)
     
-    rmq_init(username, password)
+    rmq_init( config)
 
     # we kick off the event loop with rmq_init()
     # after that, all we have to do is sit tight
