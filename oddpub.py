@@ -95,7 +95,7 @@ def main( config_file):
     rmq_init(config)
 
     # initialize all metric modules
-    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/plugins")
+    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins")
     plugins.init( config_file, False)
 
     while True:

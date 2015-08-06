@@ -134,7 +134,7 @@ def main(config_file):
     sql.db_init(url)
 
     # find and initialize all plugin modules
-    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/plugins")
+    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins")
     plugins.init( config_file, True)
     
     rmq_init( config)
