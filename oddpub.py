@@ -13,6 +13,7 @@ import plugins
 import ConfigParser
 import pika  # RabbitMQ client library
 import ssl   # for encrypted connections to the RabbitMQ broker
+import os
 
 # Globals
 logger  = None
@@ -22,6 +23,7 @@ class G:
     config = None
     channel = None
     connection = None
+    routing_key = None
 
 
 def rmq_init(config):
@@ -35,7 +37,7 @@ def rmq_init(config):
         broker = config.get("rabbitmq", "broker")
         username = config.get("rabbitmq", "username")
         password = config.get("rabbitmq", "password")
-        routing_key = config.get("rabbitmq", "routing_key")
+        G.routing_key = config.get("rabbitmq", "routing_key")
         port = config.getint("rabbitmq", "port")
         virt_host = config.get("rabbitmq", "virt_host")
         use_ssl = config.getboolean("rabbitmq", "use_ssl")
@@ -57,13 +59,12 @@ def rmq_init(config):
 
     # broker is the hostname of the broker
     # "/lustre" is the namespace
-    parameters = pika.ConnectionParameters(
-        host=broker,
-        port=port,
-        virtual_host=virt_host,
-        credentials = creds,
-        ssl=use_ssl,
-        ssl_options=ssl_opts)
+    parameters = pika.ConnectionParameters(host=broker, credentials=creds)
+    #    port=port,
+    #    virtual_host=virt_host,
+    #    credentials = creds)
+    #    ssl=use_ssl,
+    #    ssl_options=ssl_opts)
     G.connection = pika.BlockingConnection(parameters)
     G.channel = G.connection.channel()
 
@@ -92,7 +93,7 @@ def main( config_file):
     rmq_init(config)
 
     # initialize all metric modules
-    plugins.scan(".")
+    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/plugins")
     plugins.init( config_file, False)
 
     while True:
