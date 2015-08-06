@@ -19,16 +19,21 @@ setuptools.setup(name='oddmon',
     version='0.1',
     author='Feiyi Wang, Ross Miller, Jeremy Anantharaj',
     author_email='fwang2@ornl.gov, rgmiller@ornl.gov, anantharajjd@ornl.gov',
-    py_modules=['monctl', 'oddpub', 'oddsub','hostlist', 'plugins',
-                'lfs_utils', 'daemon',
-                'metric_ost_stats', 'metric_ost_job_stats',
-                'metric_ost_brw_stats', 'sql'],
-    entry_points={
-        'console_scripts': [
-            'monctl=monctl:main'
-        ]
-    },
-
+    packages = ['oddmon', 'oddmon.metric_plugins'],
+    # Note: metrics isn't technically a package (it has no __init__.py), but
+    # it is where all of the plugins live and we definitely want to include
+    # them in the distribution...
+    # ToDo: explore using setuptools.findpackages()
+    scripts = ['monctl.py'],
+#    py_modules=['monctl', 'oddpub', 'oddsub','hostlist', 'plugins',
+#                'lfs_utils', 'daemon',
+#                'metric_ost_stats', 'metric_ost_job_stats',
+#                'metric_ost_brw_stats', 'sql'],
+#    entry_points={
+#        'console_scripts': [
+#            'monctl=monctl:main'
+#        ]
+#    },
     data_files=[ ('/etc/oddmon', ['oddmon.cfg']),
                  ('share/doc/oddmon', ['README.md']),
                  ('/etc/init', ['oddmon_aggregator.conf','oddmon_collector.conf'])

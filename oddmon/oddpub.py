@@ -37,7 +37,6 @@ def rmq_init(config):
         broker = config.get("rabbitmq", "broker")
         username = config.get("rabbitmq", "username")
         password = config.get("rabbitmq", "password")
-        G.routing_key = config.get("rabbitmq", "routing_key")
         port = config.getint("rabbitmq", "port")
         virt_host = config.get("rabbitmq", "virt_host")
         use_ssl = config.getboolean("rabbitmq", "use_ssl")
@@ -59,14 +58,13 @@ def rmq_init(config):
     
     creds = pika.PlainCredentials( username, password)
 
-    # broker is the hostname of the broker
-    # "/lustre" is the namespace
-    parameters = pika.ConnectionParameters(host=broker, credentials=creds)
-    #    port=port,
-    #    virtual_host=virt_host,
-    #    credentials = creds)
-    #    ssl=use_ssl,
-    #    ssl_options=ssl_opts)
+    parameters = pika.ConnectionParameters(
+        host=broker,
+        port=port,
+        virtual_host=virt_host,
+        credentials = creds,
+        ssl=use_ssl,
+        ssl_options=ssl_opts)
     G.connection = pika.BlockingConnection(parameters)
     G.channel = G.connection.channel()
 

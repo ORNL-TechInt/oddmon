@@ -10,7 +10,7 @@ import signal
 import logging
 import ConfigParser
 import argparse
-from daemon import Daemon
+from oddmon.daemon import Daemon
 
 # Globals
 logger  = logging.getLogger("app")
@@ -52,13 +52,13 @@ def sig_handler(signal, frame):
 
 class CollectDaemon(Daemon):
     def run(self):
-        import oddpub
+        from oddmon import oddpub
         oddpub.ARGS = ARGS
         oddpub.main(G.config_file)
 
 class AggregateDaemon(Daemon):
     def run(self):
-        import oddsub
+        from oddmon import oddsub
         oddsub.ARGS = ARGS
         oddsub.main(G.config_file)
 
