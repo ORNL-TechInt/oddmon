@@ -34,7 +34,7 @@ setuptools.setup(name='oddmon',
 #            'monctl=monctl:main'
 #        ]
 #    },
-    data_files=[ ('/etc/oddmon', ['oddmon.cfg']),
+    data_files=[ ('/etc/oddmon', ['oddmon.cfg.sample']),
                  ('share/doc/oddmon', ['README.md']),
                  ('/etc/init', ['oddmon_aggregator.conf','oddmon_collector.conf'])
                ],
@@ -46,6 +46,11 @@ setuptools.setup(name='oddmon',
             'Programming Language :: Python :: 2.6',
             'Programming Language :: Python :: 2.7',
       ],
+    # Work around distutils' lack of "%config(noreplace)" support by using a
+    # post install scriptlet to copy /etc/oddmon/oddmon.cfg.sample over to
+    # /etc/oddmon/oddmon.cfg *IF* the latter file doesn't already exist.
+    # We could also add a "post_uninstall" option if we need it.
+    options = { 'bdist_rpm':{'post_install' : 'post_install'}},
     long_description=details
       )
 

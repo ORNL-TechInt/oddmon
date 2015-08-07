@@ -1,12 +1,31 @@
-[global]
+[global] 
+ 
+interval        = 30 
+ 
+[DB] 
+ 
+type            = sqlite3 
+url             = oddmon.db  
+ 
+[rabbitmq] 
+ 
+username        = guest
+password        = guest
+broker          = localhost
+port            = 5672
+use_ssl         = false
+virt_host       = /
+routing_key     = oddmon
+queue           = oddmon
 
-pub_port        = 8888
-pub_hosts       = 192.168.92.155
-interval        = 10
+[metric_ost_brw_stats]
 
-[DB]
+save_dir       = /tmp
+#save_dir       = /data/splunk/BRW_Stats
 
-type            = sqlite3
-url             = oddmon.db 
+[metric_ost_job_stats]
 
+save_dir       = /tmp
+#save_dir       = /data/splunk/BRW_Stats
+# Yes, the job stats data is dumped into the BRW_Stats index
 
