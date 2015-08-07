@@ -8,6 +8,7 @@ from __future__ import print_function
 import sys
 import signal
 import logging
+from logging.handlers import SysLogHandler
 import ConfigParser
 import argparse
 from oddmon.daemon import Daemon
@@ -31,7 +32,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="ODDMON program")
 
     parent_parser = argparse.ArgumentParser(add_help=False)
-    parent_parser.add_argument("-v", "--verbose", default=False, action="store_true", help="verbose output")
+    parent_parser.add_argument("-v", "--verbose", default=False, action="store_true",
+                               help="verbose output")
+    parent_parser.add_argument("-C", "--console", default=False, action="store_true",
+                               help="log to the console (instead of syslog)")
     parent_parser.add_argument("--cfgfile", required=True,  help="configure file")
     parent_parser.add_argument("--stop", default=False, action="store_true")
     parent_parser.add_argument("--start", default=False, action="store_true")
@@ -83,7 +87,7 @@ def main_collect():
     handle(p)
 
 
-def setup_logging(loglevel):
+def setup_logging(loglevel, console):
     global logger
 
     level = getattr(logging, loglevel.upper())
@@ -91,26 +95,19 @@ def setup_logging(loglevel):
     fmt = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logger.setLevel(level)
 
-    logfile = "LOG"
-    if "main_collect" in str(ARGS.func):
-     #  logfile = "/var/log/LOG.collector"
-        pass
+    if console:
+      console_handler = logging.StreamHandler();
+      console_handler.setFormatter(fmt)
+      logger.addHandler(console_handler)
     else:
-        pass
-      #  logfile = "/var/log/LOG.aggregator"
-
-    file_handler = logging.FileHandler(filename=logfile, mode="w")
-    file_handler.setFormatter(fmt)
-
-    console_handler = logging.StreamHandler();
-    console_handler.setFormatter(fmt)
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+      syslog_handler = SysLogHandler('/dev/log', SysLogHandler.LOG_DAEMON)
+      syslog_handler.setFormatter(fmt)
+      logger.addHandler(syslog_handler)
+      
     logger.propagate = False
     
     # Configure the logger settings for pika to match what we've
     # just set up.  (Pika is the AMQP client library)
-    #logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)   
     pika_logger = logging.getLogger("pika")
     if level == logging.DEBUG:
         level = logging.INFO # pika's DEBUG is really too verbose for us
@@ -128,9 +125,9 @@ def main():
     ARGS = parse_args()
 
     if ARGS.verbose:
-        setup_logging("debug")
+        setup_logging("debug", ARGS.console)
     else:
-        setup_logging("info")
+        setup_logging("info", ARGS.console)
 
     logger.debug(ARGS)
 

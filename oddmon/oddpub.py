@@ -51,8 +51,8 @@ def rmq_init(config):
     # ToDo: These ssl settings are specific to rmq1.ccs.ornl.gov
     # I don't know if they're correct for other brokers
         ssl_opts=({"ca_certs"   : "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
-                "cert_reqs"  : ssl.CERT_REQUIRED,
-                "server_side": False})
+                   "cert_reqs"  : ssl.CERT_REQUIRED,
+                   "server_side": False})
     else:
         ssl_opts = None
     
