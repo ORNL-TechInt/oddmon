@@ -101,7 +101,7 @@ def rmq_init(config):
     creds = pika.PlainCredentials( username, password)
 
     parameters = pika.ConnectionParameters(
-        host="localhost",
+        host=broker,
         port=port,
         virtual_host=virt_host,
         credentials = creds,
