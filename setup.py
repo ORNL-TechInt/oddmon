@@ -25,15 +25,6 @@ setuptools.setup(name='oddmon',
     # them in the distribution...
     # ToDo: explore using setuptools.findpackages()
     scripts = ['monctl.py'],
-#    py_modules=['monctl', 'oddpub', 'oddsub','hostlist', 'plugins',
-#                'lfs_utils', 'daemon',
-#                'metric_ost_stats', 'metric_ost_job_stats',
-#                'metric_ost_brw_stats', 'sql'],
-#    entry_points={
-#        'console_scripts': [
-#            'monctl=monctl:main'
-#        ]
-#    },
     data_files=[ ('/etc/oddmon', ['oddmon.cfg.sample']),
                  ('share/doc/oddmon', ['README.md']),
                  ('/etc/init', ['oddmon_aggregator.conf','oddmon_collector.conf'])
