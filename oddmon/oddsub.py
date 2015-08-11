@@ -34,11 +34,7 @@ def save_msg(msg):
 def handle_incoming( msg):
     #msg is a list (with just one element) of JSON-encoded strings   
     blob = json.loads(msg)
-    print "-----------------------------"
-    print "blob type: %s"%type(blob)
-    print "blob keys: %s"%blob.keys()
-    print "============================="
-    
+    logger.debug( "blob keys: %s"%blob.keys())
     
     for name, mod in plugins.found():
         uname = unicode(name)
