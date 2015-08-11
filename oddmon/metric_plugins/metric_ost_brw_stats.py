@@ -88,7 +88,7 @@ def save_stats(msg):
                 for k in value.keys():
                     event_str = "snapshot_time=%f bucket=%s counts=%s" % \
                                 (snapshot_time, k, value[k][0])
-                    stats_logger.info("%s host=%s source=%s sourcetype=brw_stats",
+                    stats_logger.info("%s OST=%s datatype=%s",
                                       event_str, str(ost), str(metric))
 
 
