@@ -132,10 +132,10 @@ def read_brw_stats(f):
     ret = { "snapshot_time"                 :'',
             "pages_per_bulk_read"           :defaultdict(list),
             "pages_per_bulk_write"          :defaultdict(list),
-            "discontinuous_pages_read"      :{},
-            "discontinuous_pages_write"     :{},
-            "discontinuous_blocks_read"     :{},
-            "discontinuous_blocks_write"    :{},
+            "discontiguous_pages_read"      :{},
+            "discontiguous_pages_write"     :{},
+            "discontiguous_blocks_read"     :{},
+            "discontiguous_blocks_write"    :{},
             "disk_fragmented_io_read"       :{},
             "disk_fragmented_io_write"      :{},
             "disk_io_in_flight_read"        :{},
@@ -151,8 +151,8 @@ def read_brw_stats(f):
         G.buf = f.readlines()
         extract_snaptime(ret)
         extract_hist('pages_per_bulk_read', 'pages_per_bulk_write', ret)
-        extract_hist('discontinuous_pages_read', 'discontinuous_pages_write', ret)
-        extract_hist('discontinuous_blocks_read', 'discontinuous_blocks_write', ret)
+        extract_hist('discontiguous_pages_read', 'discontiguous_pages_write', ret)
+        extract_hist('discontiguous_blocks_read', 'discontiguous_blocks_write', ret)
         extract_hist('disk_fragmented_io_read', 'disk_fragmented_io_write', ret)
         extract_hist('disk_io_in_flight_read', 'disk_io_in_flight_write', ret)
         extract_hist('io_time_read', 'io_time_write', ret)
