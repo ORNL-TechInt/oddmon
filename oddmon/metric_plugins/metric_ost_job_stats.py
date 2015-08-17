@@ -60,7 +60,6 @@ def metric_init(name, config_file, is_subscriber=False,
 
     return rv
 
-
 def metric_cleanup(is_subscriber=False):
     pass
 
@@ -97,10 +96,9 @@ def save_stats(msg):
                                     int(job["read_samples:"]), int(job["read_sum:"]), int(job["punch:"]), int(job["setattr:"]),
                                     int(job["sync:"]), str(ost))
                                 )
-                    print event_str
                     stats_logger.info(event_str)
                 else:
-                    print "Old data"
+                    logger.debug( "Old data")
 
 
 def update():

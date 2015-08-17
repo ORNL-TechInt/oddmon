@@ -39,7 +39,7 @@ def handle_incoming( msg):
     for name, mod in plugins.found():
         uname = unicode(name)
         if blob.has_key( uname):
-            print "Matched %s - about to call save_stats()"%name
+            logger.debug( "Matched %s - about to call save_stats()"%name)
             mod.save_stats(blob[uname])
 
     # TODO: ought to check that there were no unhandled items in msg...
