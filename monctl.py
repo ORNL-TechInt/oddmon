@@ -41,7 +41,6 @@ def parse_args():
     parent_parser.add_argument("--start", default=False, action="store_true")
     subparsers = parser.add_subparsers(help="Provide one of the sub-commands")
     collect_parser = subparsers.add_parser("collect", parents=[parent_parser], help="Run in collector mode")
-    collect_parser.add_argument("-i", "--interval", type=int, default=20)
     collect_parser.add_argument("--pid", default="collect.pid")
     collect_parser.set_defaults(func=main_collect)
     aggregate_parser = subparsers.add_parser("aggregate", parents=[parent_parser], help="Run in aggregator mode")

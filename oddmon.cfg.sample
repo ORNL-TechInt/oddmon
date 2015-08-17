@@ -1,6 +1,7 @@
 [global] 
  
 interval        = 30 
+# Time (in seconds) between data dump to the RMQ server
  
 [DB] 
  

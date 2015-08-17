@@ -74,9 +74,6 @@ def sig_handler(signal, frame):
     sys.exit(0)
 
 
-
-
-
 def main( config_file):
     global logger, ARGS
     logger = logging.getLogger("app.%s" % __name__)
@@ -88,6 +85,15 @@ def main( config_file):
         logger.critical("Can't read configuration file")
         logger.critical("Reason: %s" % e)
         sys.exit(1)
+
+    try:
+        sleep_interval = config.getint("global", "interval")
+    except Exception, e:
+        logger.critical('Failed to parse the "global" section of the ' \
+                        'config file.')
+        logger.critical('Reason: %s' % e)
+        sys.exit(1)
+
 
     # This will throw an exception if it fails to connect
     rmq_init(config)
@@ -114,7 +120,7 @@ def main( config_file):
         else:
             logger.warn("Empty stats")
 
-        time.sleep(ARGS.interval)
+        time.sleep(sleep_interval)
 
 
     plugins.cleanup( False)
