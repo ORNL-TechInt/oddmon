@@ -20,7 +20,6 @@ stats_logger = None  # the logger we use to write the stats data
 class G:
     fsname = None
     ostnames = None
-    stats = defaultdict(lambda: defaultdict(int))
     buf = None
     save_dir = None
 
@@ -70,27 +69,72 @@ def get_stats():
         logger.error("No valid file system ... skip")
         return ""
 
-    update()
-    return json.dumps(G.stats)
+    return json.dumps( update())
+ 
+ 
+# A clever way to implement the equivalent of C static variables
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
 
-
-def save_stats(msg):
-    brw_stats = json.loads(msg)
+@static_vars(previous_stats = {})
+def save_stats(msg):    
+    logger.debug( "Inside save_stats()")
+    brw_stats = json.loads(msg)      
+        
     for ost in brw_stats.keys():
+        logger.debug( "save_stats() processing OST '%s'"%ost)
+        if not save_stats.previous_stats.has_key(ost):
+            # The first time through, initialize our static variable then
+            # return because we don't have enough data to calculate the diffs
+            save_stats.previous_stats[ost] = brw_stats[ost]
+            logger.debug("No previous_stats entry for OST '%s'."%ost +\
+                         "  Skipping remainder of save_stats()" )
+            continue
+        
         metrics_dict = brw_stats[ost]
         snapshot_time = float(metrics_dict["snapshot_time"])
         for metric in metrics_dict.keys():
             if metric == "snapshot_time":
                 continue  # snapshot_time is not a metric in and of itself
             else:
-                logger.debug(metric)
                 value = metrics_dict[metric]
+                logger.debug("%s :: %s"%(metric, value))
                 for k in value.keys():
-                    event_str = "snapshot_time=%f bucket=%s counts=%s" % \
-                                (snapshot_time, k, value[k][0])
+                    # The value we write to Splunk is the difference between
+                    # the current counts and the previous counts
+                    try:
+                        prev_counts = int(save_stats.previous_stats[ost][metric][k][0])
+                    except KeyError, e:
+                        # Individual rows in the brw_stats file will come and
+                        # go depending on whether there was (for example) any
+                        # 256K writes recently.  Basically, it looks like the
+                        # Lustre devs tried not to to include rows with 0
+                        # counts.
+                        logger.debug( "KeyError: %s"%e)
+                        logger.debug( "OST: %s  Metric: %s  k: %s"%(ost,metric,k))
+                            
+                        if not save_stats.previous_stats[ost].has_key(metric):
+                            save_stats.previous_stats[ost][metric] = { }
+                        save_stats.previous_stats[ost][metric][k] = \
+                            [u'0',u'0',u'0']
+                        prev_counts = 0
+                        
+                    count_delta = int(value[k][0]) - prev_counts   
+                    logger.debug( "metric %s, bucket %s:  prev_counts: %d  counts: %d"% \
+                        (metric, k, prev_counts, int(value[k][0])))
+                    event_str = "snapshot_time=%f bucket=%s count_delta=%s counts=%s" % \
+                                (snapshot_time, k, count_delta, value[k][0])
                     stats_logger.info("%s OST=%s datatype=%s",
-                                      event_str, str(ost), str(metric))
-
+                                        event_str, str(ost), str(metric))
+        
+            # end of for metric in metrics_dict.keys()...
+        save_stats.previous_stats[ost] = metrics_dict
+        # end of for ost in brw_stats.keys()...
+        
 
 def extract_snaptime(ret):
     idx = G.buf.index('\n')
@@ -170,10 +214,12 @@ def read_brw_stats(f):
 
 
 def update():
+    stats = { }
     for ost in G.ostnames:
         fpath = '/proc/fs/lustre/obdfilter/' + ost
         ret = read_brw_stats(fpath)
-        if ret: G.stats[ost] = ret
+        if ret: stats[ost] = ret
+    return stats
 
 
 if __name__ == '__main__':
