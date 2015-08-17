@@ -107,7 +107,12 @@ def save_stats(msg):
                     # The value we write to Splunk is the difference between
                     # the current counts and the previous counts
                     try:
-                        prev_counts = int(save_stats.previous_stats[ost][metric][k][0])
+                        read_prev_counts = int(
+                            save_stats.previous_stats[ost][metric][k][0])
+                        write_prev_counts = int(
+                            save_stats.previous_stats[ost][metric][k][3])
+                        # See read_brw_stats() and extract_hist() for how
+                        # the publisher formats this data
                     except KeyError, e:
                         # Individual rows in the brw_stats file will come and
                         # go depending on whether there was (for example) any
@@ -120,14 +125,16 @@ def save_stats(msg):
                         if not save_stats.previous_stats[ost].has_key(metric):
                             save_stats.previous_stats[ost][metric] = { }
                         save_stats.previous_stats[ost][metric][k] = \
-                            [u'0',u'0',u'0']
-                        prev_counts = 0
+                            [u'0',u'0',u'0',u'0',u'0',u'0']
+                        read_prev_counts = 0
+                        write_prev_counts = 0
                         
-                    count_delta = int(value[k][0]) - prev_counts   
-                    logger.debug( "metric %s, bucket %s:  prev_counts: %d  counts: %d"% \
-                        (metric, k, prev_counts, int(value[k][0])))
-                    event_str = "snapshot_time=%f bucket=%s count_delta=%s counts=%s" % \
-                                (snapshot_time, k, count_delta, value[k][0])
+                    read_count_delta = int(value[k][0]) - read_prev_counts
+                    write_count_delta = int(value[k][3]) - write_prev_counts   
+                    logger.debug( "metric %s, bucket %s:  read_prev_counts: %d  read_counts: %d write_prev_counts: %d  write_counts: %d"% \
+                        (metric, k, read_prev_counts, int(value[k][0]), write_prev_counts, int(value[k][3])))
+                    event_str = "snapshot_time=%f bucket=%s read_count_delta=%s read_counts=%s write_count_delta=%s write_counts=%s" % \
+                                (snapshot_time, k, read_count_delta, value[k][0], write_count_delta, value[k][3])
                     stats_logger.info("%s OST=%s datatype=%s",
                                         event_str, str(ost), str(metric))
         
@@ -143,13 +150,15 @@ def extract_snaptime(ret):
     G.buf = G.buf[idx+1:]
 
 
-def extract_hist(key1, key2, ret):
+def extract_hist(key, ret):
     idx = None
 
     try:
         idx = G.buf.index('\n')
     except:
-        idx = len(ret) + 1
+        # We hit this exception when there's no blank line in G.buf (which
+        # happens when we're parsing the last block of lines)
+        idx = len(G.buf)
 
     # skip #0 and #1
     # process 1 line at a time
@@ -158,8 +167,7 @@ def extract_hist(key1, key2, ret):
 
         # after split: ['128:', '0', '0', '0', '|', '2', '0', '0']
         # first field '128:', remove colon
-        ret[key1][fields[0][:-1]] = fields[1:4]
-        ret[key2][fields[0][:-1]] = fields[5:]
+        ret[key][fields[0][:-1]] = fields[1:4] + fields[5:]
 
     # update buffer
     G.buf = G.buf[idx+1:]
@@ -174,33 +182,26 @@ def read_brw_stats(f):
     """
 
     ret = { "snapshot_time"                 :'',
-            "pages_per_bulk_read"           :defaultdict(list),
-            "pages_per_bulk_write"          :defaultdict(list),
-            "discontiguous_pages_read"      :{},
-            "discontiguous_pages_write"     :{},
-            "discontiguous_blocks_read"     :{},
-            "discontiguous_blocks_write"    :{},
-            "disk_fragmented_io_read"       :{},
-            "disk_fragmented_io_write"      :{},
-            "disk_io_in_flight_read"        :{},
-            "disk_io_in_flight_write"       :{},
-            "io_time_read"                  :{},
-            "io_time_write"                 :{},
-            "io_size_read"                  :{},
-            "io_size_write"                 :{}
+            "pages_per_bulk"           :defaultdict(list),
+            "discontiguous_pages"      :{},
+            "discontiguous_blocks"     :{},
+            "disk_fragmented_io"       :{},
+            "disk_io_in_flight"        :{},
+            "io_time"                  :{},
+            "io_size"                  :{},
           }
 
     pfile = os.path.realpath(f) + "/brw_stats"
     with open(pfile, "r") as f:
         G.buf = f.readlines()
         extract_snaptime(ret)
-        extract_hist('pages_per_bulk_read', 'pages_per_bulk_write', ret)
-        extract_hist('discontiguous_pages_read', 'discontiguous_pages_write', ret)
-        extract_hist('discontiguous_blocks_read', 'discontiguous_blocks_write', ret)
-        extract_hist('disk_fragmented_io_read', 'disk_fragmented_io_write', ret)
-        extract_hist('disk_io_in_flight_read', 'disk_io_in_flight_write', ret)
-        extract_hist('io_time_read', 'io_time_write', ret)
-        extract_hist('io_size_read', 'io_size_write', ret)
+        extract_hist('pages_per_bulk',       ret)
+        extract_hist('discontiguous_pages',  ret)
+        extract_hist('discontiguous_blocks', ret)
+        extract_hist('disk_fragmented_io',   ret)
+        extract_hist('disk_io_in_flight',    ret)
+        extract_hist('io_time',              ret)
+        extract_hist('io_size',              ret)
 
     # trim
     for key in ret.keys():
