@@ -7,6 +7,7 @@ __version__ = "0.1"
 """
 import sys
 import time
+import random
 import logging
 import json
 import plugins
@@ -65,7 +66,27 @@ def rmq_init(config):
         credentials = creds,
         ssl=use_ssl,
         ssl_options=ssl_opts)
-    G.connection = pika.BlockingConnection(parameters)
+    try:
+        # Wait a small amount of time before attempting to connect
+        # (This is mainly in case someone starts up a bunch of clients
+        # using pdsh or similar.  I don't want all of them hammering the
+        # rabbitmq server all at once.)
+        wait_time = random.random() * 1.0
+        time.sleep(wait_time)
+        G.connection = pika.BlockingConnection(parameters)
+    except pika.exceptions.AMQPConnectionError, e:
+        # if we get a timeout error, wait a little bit longer and try again
+        if "timed out" in str(e):
+            wait_time = 1.0 + (random.random() * 4.0)
+            logger.warning( "Timeout error connecting to RMQ server.  " \
+                             "Retrying in %fs."%wait_time)
+            time.sleep(wait_time)
+            G.connection = pika.BlockingConnection(parameters)
+            # Note: if we get another connection error, we deliberately
+            # aren't handling the exception here.  Presumably, we'll abort.
+        else:
+            # Re-throw the exception
+            raise
     G.channel = G.connection.channel()
 
 def sig_handler(signal, frame):
