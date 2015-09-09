@@ -66,28 +66,41 @@ def rmq_init(config):
         credentials = creds,
         ssl=use_ssl,
         ssl_options=ssl_opts)
-    try:
-        # Wait a small amount of time before attempting to connect
-        # (This is mainly in case someone starts up a bunch of clients
-        # using pdsh or similar.  I don't want all of them hammering the
-        # rabbitmq server all at once.)
-        wait_time = random.random() * 1.0
-        time.sleep(wait_time)
-        G.connection = pika.BlockingConnection(parameters)
-    except pika.exceptions.AMQPConnectionError, e:
-        # if we get a timeout error, wait a little bit longer and try again
-        if "timed out" in str(e):
-            wait_time = 1.0 + (random.random() * 4.0)
-            logger.warning( "Timeout error connecting to RMQ server.  " \
-                             "Retrying in %fs."%wait_time)
+    
+    # The RabbitMQ server can't handle a bunch of clients attempting to 
+    # simultaneously open connections and this is very likely to happen
+    # if one of the admins uses pdsh to start the clients on all the servers.
+    # So, we have to be clever about connecting:
+    # Connection attempts happen inside a loop. (And the loop will terminate
+    # after a fixed amount of time if we haven't successfully connected.)
+    # Inside the loop, we'll sleep for a random amount of time in order to
+    # spread the load out a bit.
+    max_time = time.time() + 120 # spend a max of 2 minutes attempting to connect
+    while (G.connection is None and time.time() < max_time):
+        try:
+            # Wait a small amount of time before attempting to connect
+            wait_time = random.random() * 1.0
             time.sleep(wait_time)
             G.connection = pika.BlockingConnection(parameters)
-            # Note: if we get another connection error, we deliberately
-            # aren't handling the exception here.  Presumably, we'll abort.
-        else:
-            # Re-throw the exception
-            raise
+            is_connected = True
+        except pika.exceptions.AMQPConnectionError, e:
+            # if we get a timeout error, wait a little bit longer before
+            # trying again
+            if "timed out" in str(e):
+                wait_time = 1.0 + (random.random() * 4.0)
+                logger.warning( "Timeout error connecting to RMQ server.  " \
+                                "Retrying in %fs."%wait_time)
+                time.sleep(wait_time)
+            else:
+                # Re-throw the exception
+                raise
+    # Exited from the while loop.  Did we connect?
+    if G.connection is None:
+        logger.critical( "Failed to connect to the RMQ server.")
+        raise RuntimeError( "Failed to connect to the RMQ server.")
+        
     G.channel = G.connection.channel()
+
 
 def sig_handler(signal, frame):
     print "\tUser cancelled ... cleaning up"
