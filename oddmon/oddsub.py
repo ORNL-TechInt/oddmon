@@ -32,6 +32,11 @@ def save_msg(msg):
             logger.debug("[%s] reports empty stats" % metric)
             
 def handle_incoming( msg):
+    
+    if ARGS.drain:
+        return # don't actually process the message - just drain it
+               # from the queue
+    
     #msg is a list (with just one element) of JSON-encoded strings   
     blob = json.loads(msg)
     logger.debug( "blob keys: %s"%blob.keys())
@@ -129,6 +134,10 @@ def main(config_file):
     # find and initialize all plugin modules
     plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins")
     plugins.init( config_file, True)
+    
+    # Print a warning if we're only draining the queue
+    if ARGS.drain:
+        logger.warning("Running in 'drain mode'! Messages will be extracted from the queue, but not processed.")
     
     rmq_init( config)
 

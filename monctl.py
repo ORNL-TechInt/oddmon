@@ -36,6 +36,8 @@ def parse_args():
                                help="verbose output")
     parent_parser.add_argument("-C", "--console", default=False, action="store_true",
                                help="log to the console (instead of syslog)")
+    parent_parser.add_argument("--drain", default=False, action="store_true",
+                               help="'drain mode' - Just retrieve messages from the queue, but don't actually process them")
     parent_parser.add_argument("--cfgfile", required=True,  help="configure file")
     parent_parser.add_argument("--stop", default=False, action="store_true")
     parent_parser.add_argument("--start", default=False, action="store_true")
