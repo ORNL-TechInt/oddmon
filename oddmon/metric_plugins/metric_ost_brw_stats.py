@@ -96,7 +96,12 @@ def save_stats(msg):
             continue
         
         metrics_dict = brw_stats[ost]
-        snapshot_time = float(metrics_dict["snapshot_time"])
+        snapshot_time = int(float(metrics_dict["snapshot_time"]))
+        # Note: the time value is actually has 6 digits to the right of
+        # the decimal point, but we don't need anything more accurate than
+        # integer seconds. (Interestingly, Python requires us to convert it
+        # to a float first, before truncating it.)
+
         for metric in metrics_dict.keys():
             if metric == "snapshot_time":
                 continue  # snapshot_time is not a metric in and of itself
@@ -133,7 +138,7 @@ def save_stats(msg):
                     write_count_delta = int(value[k][3]) - write_prev_counts   
                     logger.debug( "metric %s, bucket %s:  read_prev_counts: %d  read_counts: %d write_prev_counts: %d  write_counts: %d"% \
                         (metric, k, read_prev_counts, int(value[k][0]), write_prev_counts, int(value[k][3])))
-                    event_str = "snapshot_time=%f bucket=%s read_count_delta=%s read_counts=%s write_count_delta=%s write_counts=%s" % \
+                    event_str = "snapshot_time=%d bucket=%s read_count_delta=%s read_counts=%s write_count_delta=%s write_counts=%s" % \
                                 (snapshot_time, k, read_count_delta, value[k][0], write_count_delta, value[k][3])
                     stats_logger.info("%s OST=%s datatype=%s",
                                         event_str, str(ost), str(metric))
