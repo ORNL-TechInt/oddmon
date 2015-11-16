@@ -138,7 +138,7 @@ def save_stats(msg):
                     write_count_delta = int(value[k][3]) - write_prev_counts   
                     logger.debug( "metric %s, bucket %s:  read_prev_counts: %d  read_counts: %d write_prev_counts: %d  write_counts: %d"% \
                         (metric, k, read_prev_counts, int(value[k][0]), write_prev_counts, int(value[k][3])))
-                    event_str = "snapshot_time=%d bucket=%s read_count_delta=%s read_counts=%s write_count_delta=%s write_counts=%s" % \
+                    event_str = "ts=%d bucket=%s rc_delta=%s read_count=%s wc_delta=%s write_count=%s" % \
                                 (snapshot_time, k, read_count_delta, value[k][0], write_count_delta, value[k][3])
                     stats_logger.info("%s OST=%s datatype=%s",
                                         event_str, str(ost), str(metric))

@@ -89,7 +89,7 @@ def save_stats(msg):
             else:
                 if int(job["snapshot_time:"]) > G.timestamp:
                     G.jobids[ost].append(job["job_id:"])
-                    event_str = ("snapshot_time=%d job_id=%s write_samples=%d "
+                    event_str = ("ts=%d job_id=%s write_samples=%d "
                                  "write_sum=%d read_samples=%d read_sum=%d "
                                  "punch=%d setattr=%d sync=%d OST=%s"
                                  % (int(job["snapshot_time:"]), str(job["job_id:"]), int(job["write_samples:"]), int(job["write_sum:"]),
