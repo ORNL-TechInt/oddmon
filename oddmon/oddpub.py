@@ -143,7 +143,7 @@ def main( config_file):
             try:
                 msg = mod.get_stats()
             except Exception as e:
-                logger.error("%s --->%s\n" % (name, e))
+                logger.exception("%s --->%s\n" % (name, e))
 
             if msg: merged[name] = msg
 
