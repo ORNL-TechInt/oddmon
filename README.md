@@ -9,36 +9,28 @@
 
     python setup.py bdist_rpm
 
-## Metric plugins
+## Metric Plugins
 
-There are a few requirement for a valid plugin extension:
+There are a few requirements for a valid plugin extension:
 
 - A plugin needs to be named starting with `metric_`. 
+- Plugins must define 4 functions:
+  - `def metric_init(name, config_file, is_subscriber = False, loglevel=logging.DEBUG)`
+  - `def metric_cleanup( is_subscriber = False)`
+  - `def get_stats()`
+  - `def save_stats( msg)`
 
-- A plugin needs to implement three required method:
-    
-    - `metric_init()`
-    - `metric_cleanup()`
-    - `get_stats()`
+### Plugin Function Behavior
 
-This is similar to Ganglia. Since we forgo all the metadata attributes Ganglia
-plugin has to supply. There are limitation or requirements on what kind of
-data a metric collector can return:
+- `metric_init()` returns True if it initialized properly.
+- `get_stats()` returns the data that is to be published.  (Currently all plugins use JSON-encoded text, but that's probably not actually necessary.)
+- The other functions return nothing.
+- `get_stats()` is called by the publisher.
+- `save_stats()` is called by the subscriber.
+- `metric_init()` and `metric_cleanup()` are called by both.
 
-In short, we expect a dictionary:
+The data that `get_stats()` returns (on the publisher side) is passed to `save_stats()` (on the subscriber side).  It's up to `save_stats()` to do something useful with that data.
 
-    {   target 1: {
-                        { key : value }, 
-                        { key : value }
-                        ...
-                  }
-        target 2: { 
-                        { key : value },
-                        { key : value },
-                        ...
-                  }
-        ...
-    }
 
 ## Data Archiving
 
