@@ -7,15 +7,21 @@ import logging
 class G:
     fmt = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
-def scan_osts():
+def scan_targets( OSS=True):
     fsname = None
-    ostnames = []
-    osts = glob.glob("/proc/fs/lustre/obdfilter/*OST*")
-    if len(osts) != 0:
-        fsname, _ = os.path.basename(osts[0]).split("-")
-        for ost in osts:
-            ostnames.append(os.path.basename(ost))
-    return fsname, ostnames
+    targetnames = []
+    targets = []
+    
+    if OSS:
+        targets = glob.glob("/proc/fs/lustre/obdfilter/*OST*")
+    else:
+        targets = glob.glob("/proc/fs/lustre/mdt/*MDT*")
+        
+    if len(targets) != 0:
+        fsname, _ = os.path.basename(targets[0]).split("-")
+        for target in targets:
+            targetnames.append(os.path.basename(target))
+    return fsname, targetnames
 
 def get_filehandler(f, m="w", level=logging.DEBUG):
     fh = logging.FileHandler(filename=f, mode=m)

@@ -31,7 +31,7 @@ def metric_init(name, config_file, is_subscriber=False,
 
     rv = True
     if is_subscriber is False:
-        G.fsname, G.ostnames = lfs_utils.scan_osts()
+        G.fsname, G.ostnames = lfs_utils.scan_targets( OSS=True)
     else:
         # config file is only needed for the location of the
         # stats_logger file, and that's only needed on the

@@ -23,7 +23,7 @@ def metric_init(name, config_file, is_subscriber=False,
                 loglevel=logging.DEBUG):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
-    G.fsname, G.ostnames = lfs_utils.scan_osts()
+    G.fsname, G.ostnames = lfs_utils.scan_targets( OSS=True)
 
 
 def metric_cleanup(is_subscriber=False):
