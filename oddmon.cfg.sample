@@ -2,6 +2,10 @@
  
 interval        = 30 
 # Time (in seconds) between data dump to the RMQ server
+
+#disabled_plugins = metric_ost_stats, metric_ost_brw_stats
+# Comma separated list of plugins that should not be used even if they're
+# they're found.  The entry is optional and may be commented out.
  
 [DB] 
  

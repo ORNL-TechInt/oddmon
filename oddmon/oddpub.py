@@ -127,13 +127,20 @@ def main( config_file):
                         'config file.')
         logger.critical('Reason: %s' % e)
         sys.exit(1)
+    try:
+        disabled_plugins = config.get( "global", "disabled_plugins").split(',')
+        disabled_plugins = map( str.strip, disabled_plugins)
+    except ConfigParser.NoOptionError:
+        # This is no problem.  The disabled_plugins config is optional
+        disabled_plugins = [ ]
+
 
 
     # This will throw an exception if it fails to connect
     rmq_init(config)
 
     # initialize all metric modules
-    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins")
+    plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins", disabled_plugins)
     plugins.init( config_file, False)
 
     while True:

@@ -33,35 +33,41 @@ import os.path
 import imp
 import logging
 import glob
+import ConfigParser
 
 class _G:
     plugins = {}
     callbacks = ['metric_init', 'get_stats', 'save_stats', 'metric_cleanup']
 
-def scan(pathname):
+def scan(pathname, disabled_plugins):
 
     pathname = os.path.realpath(pathname) + "/metric*.py"
     logger = logging.getLogger("app.%s" % __name__)
     logger.debug("Plugin path: %s" % pathname)
+    logger.debug("Disabled plugins: %s" % disabled_plugins)
     sources = glob.glob(pathname)
 
     for s in sources:
         name = os.path.basename(s).split(".")[0]
-        mod = imp.load_source(name, s)
-        if set(_G.callbacks).issubset(set(dir(mod))):
-            _G.plugins[name] = mod
-            logger.info("Registering plugin: %s" % name)
+        if name in disabled_plugins:
+            logger.info ("%s plugin disabled by config file. " % name)
         else:
-            logger.warn("Skipping %s" % name)
+            mod = imp.load_source(name, s) 
+            if set(_G.callbacks).issubset(set(dir(mod))):
+                _G.plugins[name] = mod
+                logger.info("Registering plugin: %s" % name)
+            else:
+                logger.warn("Skipping %s" % name)
+
 
 def init( config_file, is_subscriber = False):
     names = _G.plugins.keys();
     for name in names:
-       if (_G.plugins[name].metric_init(name, config_file, is_subscriber) == False):
-           logger = logging.getLogger("app.%s" % __name__)
-           logger.warn( "%s failed to initialize.  Removing from pluins list"%
-                         name)
-           _G.plugins.pop(name)
+        if (_G.plugins[name].metric_init(name, config_file, is_subscriber) == False):
+            logger = logging.getLogger("app.%s" % __name__)    
+            logger.warn( "%s failed to initialize. "
+                         "Removing from plug-ins list" % name)
+            _G.plugins.pop(name)
            
 
 def cleanup( is_subscriber = False):
