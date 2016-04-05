@@ -31,7 +31,7 @@ def metric_init(name, config_file, is_subscriber=False,
 
     rv = True
     if is_subscriber is False:
-        G.fsname, G.ostnames = lfs_utils.scan_targets( OSS=True)
+        G.fsname, G.ostnames = lfs_utils.scan_targets(OSS=True)
     else:
         # config file is only needed for the location of the
         # stats_logger file, and that's only needed on the
@@ -69,9 +69,9 @@ def get_stats():
         logger.error("No valid file system ... skip")
         return ""
 
-    return json.dumps( update())
- 
- 
+    return json.dumps(update())
+
+
 # A clever way to implement the equivalent of C static variables
 def static_vars(**kwargs):
     def decorate(func):
@@ -80,21 +80,22 @@ def static_vars(**kwargs):
         return func
     return decorate
 
-@static_vars(previous_stats = {})
-def save_stats(msg):    
-    logger.debug( "Inside save_stats()")
-    brw_stats = json.loads(msg)      
-        
+
+@static_vars(previous_stats={})
+def save_stats(msg):
+    logger.debug("Inside save_stats()")
+    brw_stats = json.loads(msg)
+
     for ost in brw_stats.keys():
-        logger.debug( "save_stats() processing OST '%s'"%ost)
-        if not save_stats.previous_stats.has_key(ost):
+        logger.debug("save_stats() processing OST '%s'" % ost)
+        if not ost in save_stats.previous_stats:
             # The first time through, initialize our static variable then
             # return because we don't have enough data to calculate the diffs
             save_stats.previous_stats[ost] = brw_stats[ost]
-            logger.debug("No previous_stats entry for OST '%s'."%ost +\
-                         "  Skipping remainder of save_stats()" )
+            logger.debug("No previous_stats entry for OST '%s'." % ost +
+                         "  Skipping remainder of save_stats()")
             continue
-        
+
         metrics_dict = brw_stats[ost]
         snapshot_time = int(float(metrics_dict["snapshot_time"]))
         # Note: the time value is actually has 6 digits to the right of
@@ -107,7 +108,7 @@ def save_stats(msg):
                 continue  # snapshot_time is not a metric in and of itself
             else:
                 value = metrics_dict[metric]
-                logger.debug("%s :: %s"%(metric, value))
+                logger.debug("%s :: %s" % (metric, value))
                 for k in value.keys():
                     # The value we write to Splunk is the difference between
                     # the current counts and the previous counts
@@ -124,29 +125,38 @@ def save_stats(msg):
                         # 256K writes recently.  Basically, it looks like the
                         # Lustre devs tried not to to include rows with 0
                         # counts.
-                        logger.debug( "KeyError: %s"%e)
-                        logger.debug( "OST: %s  Metric: %s  k: %s"%(ost,metric,k))
-                            
-                        if not save_stats.previous_stats[ost].has_key(metric):
-                            save_stats.previous_stats[ost][metric] = { }
+                        logger.debug("KeyError: %s" % e)
+                        logger.debug("OST: %s  Metric: %s  k: %s" %
+                                     (ost, metric, k))
+
+                        if not metric in save_stats.previous_stats[ost]:
+                            save_stats.previous_stats[ost][metric] = {}
                         save_stats.previous_stats[ost][metric][k] = \
-                            [u'0',u'0',u'0',u'0',u'0',u'0']
+                            [u'0', u'0', u'0', u'0', u'0', u'0']
                         read_prev_counts = 0
                         write_prev_counts = 0
-                        
+
                     read_count_delta = int(value[k][0]) - read_prev_counts
-                    write_count_delta = int(value[k][3]) - write_prev_counts   
-                    logger.debug( "metric %s, bucket %s:  read_prev_counts: %d  read_counts: %d write_prev_counts: %d  write_counts: %d"% \
-                        (metric, k, read_prev_counts, int(value[k][0]), write_prev_counts, int(value[k][3])))
-                    event_str = "ts=%d bucket=%s rc_delta=%s read_count=%s wc_delta=%s write_count=%s" % \
-                                (snapshot_time, k, read_count_delta, value[k][0], write_count_delta, value[k][3])
+                    write_count_delta = int(value[k][3]) - write_prev_counts
+                    dbg_str = "metric %s, bucket %s:  read_prev_counts: %d" %\
+                              (metric, k, read_prev_counts)
+                    dbg_str += "  read_counts: %d write_prev_counts: %d" %\
+                               (int(value[k][0]), write_prev_counts)
+                    dbg_str += "  write_counts: %d" % (int(value[k][3]))
+                    logger.debug(dbg_str)
+
+                    event_str = "ts=%d bucket=%s rc_delta=%s" %\
+                                (snapshot_time, k, read_count_delta)
+                    event_str += " read_count=%s wc_delta=%s" %\
+                                 (value[k][0], write_count_delta)
+                    event_str += " write_count=%s" % value[k][3]
                     stats_logger.info("%s OST=%s datatype=%s",
-                                        event_str, str(ost), str(metric))
-        
+                                      event_str, str(ost), str(metric))
+
             # end of for metric in metrics_dict.keys()...
         save_stats.previous_stats[ost] = metrics_dict
         # end of for ost in brw_stats.keys()...
-        
+
 
 def extract_snaptime(ret):
     idx = G.buf.index('\n')
@@ -186,15 +196,14 @@ def read_brw_stats(f):
     return a dictionary with key/val pairs
     """
 
-    ret = { "snapshot_time"                 :'',
-            "pages_per_bulk"           :defaultdict(list),
-            "discontiguous_pages"      :{},
-            "discontiguous_blocks"     :{},
-            "disk_fragmented_io"       :{},
-            "disk_io_in_flight"        :{},
-            "io_time"                  :{},
-            "io_size"                  :{},
-          }
+    ret = {"snapshot_time"        : '',
+           "pages_per_bulk"       : defaultdict(list),
+           "discontiguous_pages"  : {},
+           "discontiguous_blocks" : {},
+           "disk_fragmented_io"   : {},
+           "disk_io_in_flight"    : {},
+           "io_time"              : {},
+           "io_size"              : {}}
 
     pfile = os.path.realpath(f) + "/brw_stats"
     with open(pfile, "r") as f:
@@ -220,11 +229,12 @@ def read_brw_stats(f):
 
 
 def update():
-    stats = { }
+    stats = {}
     for ost in G.ostnames:
         fpath = '/proc/fs/lustre/obdfilter/' + ost
         ret = read_brw_stats(fpath)
-        if ret: stats[ost] = ret
+        if ret:
+            stats[ost] = ret
     return stats
 
 
