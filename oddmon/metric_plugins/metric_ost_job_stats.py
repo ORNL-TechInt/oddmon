@@ -168,80 +168,66 @@ def read_target_stats(path, target_name):
         timestamp = int(time.time())
 
         # The OST's and MDT's have different data in their job_stats files
-        mdt_kw = ["open:", "close:", "mknod:", "link:", "unlink:", "mkdir:",
+        if G.is_mds:
+            kw = ["open:", "close:", "mknod:", "link:", "unlink:", "mkdir:",
                   "rmdir:", "rename:", "getattr:", "setattr:", "getxattr:",
                   "setxattr:", "statfs:", "sync:", "samedir_rename:",
                   "crossdir_rename:"]
-        ost_kw = ["punch:", "setattr:", "sync:"]
+            stanza_lines = 18
+            data_elements = 18
+        else:
+            kw = ["punch:", "setattr:", "sync:"]
+            stanza_lines = 7
+            data_elements = 9  # 2 of the lines have 2 elements each
 
         job_times = defaultdict(int)  # holds job ids & timestamps.
                                       # Compare against G.job_times[<target_name>]
         next(f)  # ignore the first line (it just says "job stats:")
         while flag:
             job = {}  # stores key/value pairs for a single job in the file
-            stanza_complete = False
 
-            if G.is_mds:
-                # The job_stats file has a 'stanza' for each job.  Each stanza
-                # is 18 lines long.  The while loop gets the data for a single
-                # stanza.
-                i = 1
-                while i % 19 != 0:
-                    try:
-                        data = next(f)
-                    except:
-                        flag = False
-                        if i != 1:
-                            logger.error("job_stats file ended with an incomplete job stanza.  That shouldn't happen.")
-                        break
-                    line = data.split()
-                    if "job_id:" in line:
-                        job["job_id:"] = line[2]
-                    elif "snapshot_time:" in line:
-                        job["snapshot_time:"] = line[1]
-                    elif any(s in line for s in mdt_kw):
-                        job[line[0]] = line[3].strip(",")
-                    i += 1
-                if len(job) == 18:
-                # We've read a complete job stanza.  (18 lines in the
-                # stanza, 1 data element per line.
-                    stanza_complete = True
-            else:  # Parse an OST job_stats
-                # Like the MDS, the OST job_stats file has a 'stanza' for
-                # each job.  In this case, each stanza is 7 lines long.
-                i = 1
-                while i % 8 != 0:
-                    try:
-                        data = next(f)
-                    except:
-                        flag = False
-                        if i != 1:
-                            logger.error("job_stats file ended with an incomplete job stanza.  That shouldn't happen.")
-                        break
-                    line = data.split()
-                    if "job_id:" in line:
-                        job["job_id:"] = line[2]
-                    elif "snapshot_time:" in line:
-                        job["snapshot_time:"] = line[1]
-                    elif "read:" in line:
-                        job["read_sum:"] = line[11]
-                        job["read_samples:"] = line[3].strip(",")
-                    elif "write:" in line:
-                        job["write_sum:"] = line[11]
-                        job["write_samples:"] = line[3].strip(",")
-                    elif any(s in line for s in ost_kw):
-                        job[line[0]] = line[3].strip(",")
-                    i += 1
-                if len(job) == 9:
-                # We've read a complete job stanza.  (7 lines in the
-                # stanza, but the read and write lines had 2 data elements
-                # each, so 9 items in job.
-                    stanza_complete = True
+            # Each pass through this inside while loop should parse
+            # a single complete stanza
+            i = 1
+            while i % (stanza_lines + 1) != 0:
+                try:
+                    data = next(f)
+                except:
+                    flag = False
+                    if i != 1:
+                        logger.error("job_stats file ended with an "
+                                     "incomplete job stanza.  That "
+                                     "shouldn't happen.")
+                    break
+                line = data.split()
+                # There's some lines in the stanza that are special cases
+                if "job_id:" in line:
+                    job["job_id:"] = line[2]
+                elif "snapshot_time:" in line:
+                    job["snapshot_time:"] = line[1]
+                elif "read:" in line:
+                    job["read_sum:"] = line[11]
+                    job["read_samples:"] = line[3].strip(",")
+                elif "write:" in line:
+                    job["write_sum:"] = line[11]
+                    job["write_samples:"] = line[3].strip(",")
 
-            if stanza_complete:
-                # Now check the timestamp: it's possible that nothing has
-                # changed since the last time we read this job_id. In that
-                # case we're not going to resend the data.
+                # all the other lines are handled with the keyword lists
+                elif any(s in line for s in kw):
+                    job[line[0]] = line[3].strip(",")
+
+                else:  # sanity check
+                    logger.warn("Ignoring unexpected line in job_stats file:")
+                    logger.warn(data)
+                    logger.warn("This shouldn't happen.  Has Lustre"
+                                " been updated?")
+                i += 1
+
+            if len(job) == data_elements:
+                # If we've read a complete job stanza, then check the
+                # timestamp: it's possible that nothing has changed since
+                # the last time we read this job_id. In that case we're not
+                # going to resend the data.
                 job_id = job["job_id:"]
                 if G.job_times[target_name][job_id] >= \
                    int(job["snapshot_time:"]):
@@ -258,8 +244,9 @@ def read_target_stats(path, target_name):
                     stats.append(job)
             elif len(job) != 0:
                 # A length of 0 means the file ended where it was supposed to.
-                # A non-zero length means we somehow got part of a job...
-                logger.error("Ignoring incomplete job stanza.  This shouldn't happen.")
+                # A non-zero length means we somehow got part of a job stanza.
+                logger.error("Ignoring incomplete job stanza.  This "
+                             "shouldn't happen.")
 
     # Done reading the job_stats file
 
