@@ -26,10 +26,9 @@ class G:
 
     # attributes used by the publisher
     fsname = ''
-    ostnames = []
-    mdtnames = []  # Will probably only contain a single name.  Even with DNE
-                   # turned on, I doubt we'll ever have more than one MDT per
-                   # MDS.  If we ever do, though, this code should still work.
+    target_names = []
+    # Holds the names of the OST or MDT target(s) that the server we're
+    # running on manages.
 
     job_times = defaultdict(lambda: defaultdict(int))
     # A dict of dicts of the most recent job id's & timestamps.  (Note:
@@ -51,12 +50,11 @@ def metric_init(name, config_file, is_subscriber=False,
 
     rv = True
     if is_subscriber is False:
-        G.fsname, G.mdtnames = lfs_utils.scan_targets(OSS=False)
-        if len(G.mdtnames) == 0:
+        G.fsname, G.target_names = lfs_utils.scan_targets(OSS=False)
+        if len(G.target_names) == 0:
             # We must be running on an OSS...
             G.is_mds = False
-            G.fsname, G.ostnames = lfs_utils.scan_targets(OSS=True)
-
+            G.fsname, G.target_names = lfs_utils.scan_targets(OSS=True)
     else:
         # config file is only needed for the location of the
         # stats_logger file, and that's only needed on the
@@ -130,39 +128,33 @@ def save_stats(msg):
                 event_str = "ts=%d job_id=%s write_samples=%d " %\
                             (int(job["snapshot_time:"]), str(job["job_id:"]),
                              int(job["write_samples:"]))
-                event_str = "write_sum=%d read_samples=%d read_sum=%d " %\
-                            (int(job["write_sum:"]), int(job["read_samples:"]),
-                             int(job["read_sum:"]))
-                event_str = "punch=%d setattr=%d sync=%d OST=%s" %\
-                            (int(job["punch:"]), int(job["setattr:"]),
-                             int(job["sync:"]), str(target))
+                event_str += "write_sum=%d read_samples=%d read_sum=%d " %\
+                             (int(job["write_sum:"]),
+                              int(job["read_samples:"]),
+                              int(job["read_sum:"]))
+                event_str += "punch=%d setattr=%d sync=%d OST=%s" %\
+                             (int(job["punch:"]), int(job["setattr:"]),
+                              int(job["sync:"]), str(target))
 
             stats_logger.info(event_str)
 
 
 def update():
     if G.is_mds:
-        for mdt in G.mdtnames:
-            fpath = '/proc/fs/lustre/mdt/' + mdt
-            ret = read_target_stats(fpath, mdt)
-            if ret:
-                G.stats[mdt] = ret
-            else:
-                # The only time we'd get here is if read_target_stats() hit an
-                # error and exited early...which it wouldn't do without raising
-                # an exception.
-                G.stats[mdt] = []
-    else:  # get OST stats
-        for ost in G.ostnames:
-            fpath = '/proc/fs/lustre/obdfilter/' + ost
-            ret = read_target_stats(fpath, ost)
-            if ret:
-                G.stats[ost] = ret
-            else:
-                # The only time we'd get here is if read_target_stats() hit an
-                # error and exited early...which it wouldn't do without raising
-                # an exception.
-                G.stats[ost] = []
+        base_path = '/proc/fs/lustre/mdt/'
+    else:
+        base_path = '/proc/fs/lustre/obdfilter/'
+
+    for target in G.target_names:
+        fpath = base_path + target
+        ret = read_target_stats(fpath, target)
+        if ret:
+            G.stats[target] = ret
+        else:
+            # The only time we'd get here is if read_target_stats() hit an
+            # error and exited early...which it wouldn't do without raising
+            # an exception.
+            G.stats[target] = []
 
 
 def read_target_stats(path, target_name):
