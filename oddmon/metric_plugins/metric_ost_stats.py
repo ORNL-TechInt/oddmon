@@ -23,7 +23,18 @@ def metric_init(name, config_file, is_subscriber=False,
                 loglevel=logging.DEBUG):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
+    rv = True
+    
     G.fsname, G.ostnames = lfs_utils.scan_targets(OSS=True)
+    if not G.ostnames:
+        logger.warn("No OST's found.  Disabling plugin.")
+        rv = False
+    elif not G.fsname:
+        logger.error("OST's found, but could not discern filesystem name. "
+                     "(This shouldn't happen.)  Disabling plugin.")
+        rv = False
+    
+    return rv
 
 
 def metric_cleanup(is_subscriber=False):

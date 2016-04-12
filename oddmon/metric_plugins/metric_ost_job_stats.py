@@ -51,10 +51,24 @@ def metric_init(name, config_file, is_subscriber=False,
     rv = True
     if is_subscriber is False:
         G.fsname, G.target_names = lfs_utils.scan_targets(OSS=False)
-        if len(G.target_names) == 0:
-            # We must be running on an OSS...
+        if not G.target_names:
+            # Check if we're running on an OSS
             G.is_mds = False
             G.fsname, G.target_names = lfs_utils.scan_targets(OSS=True)
+            if not G.ostnames:
+                logger.warn("No OST's or MDT's found.  Disabling plugin.")
+                rv = False
+            elif not G.fsname:
+                logger.error("OST's found, but could not discern filesystem "
+                             "name. (This shouldn't happen.)  Disabling "
+                             "plugin.")
+                  rv = False
+        elif not G.fsname:
+            logger.error("MDT's found, but could not discern filesystem "
+                         "name. (This shouldn't happen.)  Disabling "
+                         "plugin.")
+            rv = False
+          
     else:
         # config file is only needed for the location of the
         # stats_logger file, and that's only needed on the
