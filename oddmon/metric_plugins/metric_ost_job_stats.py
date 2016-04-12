@@ -62,7 +62,7 @@ def metric_init(name, config_file, is_subscriber=False,
                 logger.error("OST's found, but could not discern filesystem "
                              "name. (This shouldn't happen.)  Disabling "
                              "plugin.")
-                  rv = False
+                rv = False
         elif not G.fsname:
             logger.error("MDT's found, but could not discern filesystem "
                          "name. (This shouldn't happen.)  Disabling "
