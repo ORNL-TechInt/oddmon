@@ -55,7 +55,7 @@ def metric_init(name, config_file, is_subscriber=False,
             # Check if we're running on an OSS
             G.is_mds = False
             G.fsname, G.target_names = lfs_utils.scan_targets(OSS=True)
-            if not G.ostnames:
+            if not G.target_names:
                 logger.warn("No OST's or MDT's found.  Disabling plugin.")
                 rv = False
             elif not G.fsname:
