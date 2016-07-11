@@ -161,7 +161,32 @@ def main( config_file):
         else:
             logger.warn("Empty stats")
 
-        time.sleep(sleep_interval)
+        # Sleep until it's time to take the next sample.
+        #
+        # We expect there will be multiple publishers running, and would
+        # like them to all collect samples at the same time.  (Doing so
+        # makes aggregating all the samples together much easier.)  If we
+        # just called time.sleep(), the different processes would eventually
+        # get out of sync.  Instead, we're going base everything on the
+        # time.time() call.  (We're assuming that computers running the
+        # publishers all have their clocks sync'd.)
+        #
+        # We want to wake up when time.time() % sleep_interval == 0
+        # In an effort to both wake up on time and avoid calling sleep()
+        # for such short periods that it basically turns into a spinlock,
+        # we try to be a little clever about calculating a length of time
+        # to sleep.
+        wake_time = time.time()
+        wake_time += sleep_interval - (wake_time % sleep_interval)
+        while (time.time() < wake_time):
+            sleep_time = (wake_time - time.time()) / 2
+            if sleep_time < 0.05:
+                sleep_time = 0.05  # don't try to sleep for less than 50
+                                   # milliseconds - we don't need that kind
+                                   # of precision
+            time.sleep( sleep_time)
+        
+        
 
 
     plugins.cleanup( False)
