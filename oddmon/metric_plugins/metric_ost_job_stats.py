@@ -16,6 +16,21 @@ logger = None        # used for normal logging messages
 stats_logger = None  # the logger we use to write the stats data
 
 
+# Holds a subset of the job data that we want to save for comparison
+# with the next sample.  See G.job_times below.
+class JobSummary:
+    def __init__(self, ts=0, wsum=0, rsum=0, wsamp=0, rsamp=0):
+        self.timestamp = ts
+        self.write_sum = wsum
+        self.read_sum = rsum
+        self.write_samples = wsamp
+        self.read_samples = rsamp
+    
+    def __str__(self): # this is mostly for debugging
+        return "Timestamp: %d  WriteSum: %d  " % (self.timestamp, self.write_sum) + \
+               "ReadSum: %d  WriteSamples: %d  " % (self.read_sum, self.write_samples) + \
+               "ReadSamples: %d" % self.read_samples
+
 # A class used simply as a place to store globals (and in particular, the C
 # equivalent of static globals). Don't instantiate individual 'G' objects.
 class G:
@@ -30,12 +45,12 @@ class G:
     # Holds the names of the OST or MDT target(s) that the server we're
     # running on manages.
 
-    job_times = defaultdict(lambda: defaultdict(int))
-    # A dict of dicts of the most recent job id's & timestamps.  (Note:
-    # calling int() returns 0, which is useful since that's what we want for
-    # our default timstamps.) Used down in read_target_stats() to ensure we
-    # don't repeat data that hasn't changed since the previous check.
-    # ex: G.job_times[<OST Name>][<job ID>] = <timestamp>
+    job_times = defaultdict(lambda: defaultdict( JobSummary))
+    # A dict of dicts of the most recent job id's timestamp, read_sum &
+    # write_sum values.  Used down in read_target_stats() to ensure we don't
+    # repeat data that hasn't changed since the previous check and also to
+    # calculate the delta values for read_sum & write_sum
+    # ex: G.job_times[<OST Name>][<job ID>].timestamp = <timestamp>
 
     is_mds = True  # We handle the MDS a little differently from the OSS's
 
@@ -139,16 +154,28 @@ def save_stats(msg):
                              (int(job["samedir_rename:"]),
                               int(job["crossdir_rename:"]), str(target))
             else:  # OST record
-                event_str = "ts=%d job_id=%s write_samples=%d " %\
-                            (int(job["snapshot_time:"]), str(job["job_id:"]),
-                             int(job["write_samples:"]))
-                event_str += "write_sum=%d read_samples=%d read_sum=%d " %\
-                             (int(job["write_sum:"]),
-                              int(job["read_samples:"]),
-                              int(job["read_sum:"]))
-                event_str += "punch=%d setattr=%d sync=%d OST=%s" %\
-                             (int(job["punch:"]), int(job["setattr:"]),
-                              int(job["sync:"]), str(target))
+                event_str = "ts=%d job_id=%s OST=%s " %\
+                    (int(job["snapshot_time:"]), str(job["job_id:"]),
+                     str(target))
+                event_str += "punch=%d setattr=%d sync=%d " %\
+                    (int(job["punch:"]), int(job["setattr:"]),
+                     int(job["sync:"]))
+                event_str += "write_samples=%d write_sum=%d " % \
+                    (int(job["write_samples:"]), int(job["write_sum:"]))              
+                event_str += "read_samples=%d read_sum=%d" %\
+                    (int(job["read_samples:"]), int(job["read_sum:"]))
+                
+
+                # Older versions of the client don't have the *_delta keys
+                # and we don't want to crash with a KeyError exception.                             
+                if job.has_key("write_samples_delta"):
+                    event_str += " wsamp_d=%d" % int(job["write_samples_delta"])
+                if job.has_key("write_sum_delta"):
+                    event_str += " wsum_d=%d" % int(job["write_sum_delta"])
+                if job.has_key("read_samples_delta"):
+                    event_str += " rsamp_d=%d" % int(job["read_samples_delta"])
+                if job.has_key("read_sum_delta"):
+                    event_str += " rsum_d=%d" % int(job["read_sum_delta"])
 
             stats_logger.info(event_str)
 
@@ -194,8 +221,10 @@ def read_target_stats(path, target_name):
             stanza_lines = 7
             data_elements = 9  # 2 of the lines have 2 elements each
 
-        job_times = defaultdict(int)  # holds job ids & timestamps.
-                                      # Compare against G.job_times[<target_name>]
+        job_times = defaultdict(JobSummary)
+        # Maps a job id to its timestamp, read_sum & write_sum
+        # Compare against G.job_times[<target_name>]
+        
         next(f)  # ignore the first line (it just says "job stats:")
         while flag:
             job = {}  # stores key/value pairs for a single job in the file
@@ -243,18 +272,33 @@ def read_target_stats(path, target_name):
                 # the last time we read this job_id. In that case we're not
                 # going to resend the data.
                 job_id = job["job_id:"]
-                if G.job_times[target_name][job_id] >= \
+                if G.job_times[target_name][job_id].timestamp >= \
                    int(job["snapshot_time:"]):
                     # Hooray for defaultdict:  if the time hasn't been set,
                     # it will default to 0
 
-                    # Copy the old timestamp and don't output the data
+                    # Copy the old job summary and don't output the data
                     job_times[job_id] = G.job_times[target_name][job_id]
                 else:
-                    # updated data
-                    job_times[job_id] = int(job["snapshot_time:"])
-                    # Note the conversion to int!  Want to ensure the
-                    # comparison up above works as expected!
+                    if not G.is_mds:
+                        # calculate the read & write delta values
+                        job["write_sum_delta"] = int(job["write_sum:"]) - G.job_times[target_name][job_id].write_sum
+                        job["read_sum_delta"] = int(job["read_sum:"]) - G.job_times[target_name][job_id].read_sum                  
+                        job["write_samples_delta"] = int(job["write_samples:"]) - G.job_times[target_name][job_id].write_samples
+                        job["read_samples_delta"] = int(job["read_samples:"]) - G.job_times[target_name][job_id].read_samples
+                        
+                        # overwrite the old summary data with the new
+                        job_times[job_id] = JobSummary( int(job["snapshot_time:"]),
+                                                        int(job["write_sum:"]),
+                                                        int(job["read_sum:"]),
+                                                        int(job["write_samples:"]),
+                                                        int(job["read_samples:"]))
+                        # Note the conversions to int!  Want to ensure the
+                        # comparison up above works as expected!
+                    else:
+                        # For the MDS, we just need the timestamp
+                        job_times[job_id] = JobSummary( int(job["snapshot_time:"]))
+                    
                     stats.append(job)
             elif len(job) != 0:
                 # A length of 0 means the file ended where it was supposed to.
