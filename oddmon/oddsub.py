@@ -52,16 +52,19 @@ def handle_incoming( msg):
 def on_connected(connection):
     """Called when we are fully connected to RabbitMQ"""
     # Open a channel
+    logger.debug( "Connection established.  Opening RMQ channel...")
     connection.channel(on_channel_open)
 
 def on_channel_open(new_channel):
     """Called when our channel has opened"""
     global channel
+    logger.debug( "Channel opened.  Declaring queue...")
     channel = new_channel
     channel.queue_declare(queue=G.queue, durable=True, exclusive=False, auto_delete=False, callback=on_queue_declared)
 
 def on_queue_declared(frame):
     """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
+    logger.debug( "Queue declared.  Awaiting incoming messages...")
     channel.basic_consume(handle_delivery, queue=G.queue)
 
 def handle_delivery(channel, method, header, body):
@@ -111,6 +114,7 @@ def rmq_init(config):
     connection = pika.SelectConnection(parameters, on_connected)
 
     try:
+        logger.debug( "About to start RMQ message handling loop")
         connection.ioloop.start()
     except KeyboardInterrupt:
         connection.close()
