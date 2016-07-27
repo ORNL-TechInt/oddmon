@@ -93,7 +93,7 @@ def save_stats(msg):
     logger.debug("Inside save_stats()")
     brw_stats = json.loads(msg)
 
-    for ost in brw_stats.keys():
+    for ost in brw_stats:
         logger.debug("save_stats() processing OST '%s'" % ost)
         if not ost in save_stats.previous_stats:
             # The first time through, initialize our static variable then
@@ -110,13 +110,13 @@ def save_stats(msg):
         # integer seconds. (Interestingly, Python requires us to convert it
         # to a float first, before truncating it.)
 
-        for metric in metrics_dict.keys():
+        for metric in metrics_dict:
             if metric == "snapshot_time":
                 continue  # snapshot_time is not a metric in and of itself
             else:
                 value = metrics_dict[metric]
                 logger.debug("%s :: %s" % (metric, value))
-                for k in value.keys():
+                for k in value:
                     # The value we write to Splunk is the difference between
                     # the current counts and the previous counts
                     try:
@@ -160,9 +160,9 @@ def save_stats(msg):
                     stats_logger.info("%s OST=%s datatype=%s",
                                       event_str, str(ost), str(metric))
 
-            # end of for metric in metrics_dict.keys()...
+            # end of for metric in metrics_dict...
         save_stats.previous_stats[ost] = metrics_dict
-        # end of for ost in brw_stats.keys()...
+        # end of for ost in brw_stats...
 
 
 def extract_snaptime(ret):
@@ -225,11 +225,15 @@ def read_brw_stats(f):
         extract_hist('io_size',              ret)
 
     # trim
-    for key in ret.keys():
+    for key in list(ret):
+    # Note: we want a separate list of keys here because we're going to
+    # modify the dictionary.  We could have used ret.keys(), but in
+    # python3, that would fail because dict.keys() returns a
+    #'set-like object' that only provides a view into the dictionary.
         if len(ret[key]) == 0:
             del ret[key]
 
-    if len(ret.keys()) > 1:
+    if len(ret) > 1:
         return ret
     else:                   # if only snapshot_time, return None
         return None

@@ -131,7 +131,7 @@ def save_stats(msg):
     # MDT) names for keys.  The associated values are themselves lists of
     # dictionaries where each dictionary is the key/value data for one job.
 
-    for target in stats.keys():
+    for target in stats:
         jobList = stats[target]
         for job in jobList:
             # convert the python structure into an event string suitable
