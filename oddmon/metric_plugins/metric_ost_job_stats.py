@@ -99,9 +99,8 @@ def metric_init(name, config_file, is_subscriber=False,
             stats_logger_name = G.save_dir+os.sep+"job_log.txt"
             logger.debug("Stats data saved to: %s" % stats_logger_name)
             stats_logger.addHandler(
-                logging.handlers.RotatingFileHandler(stats_logger_name,
-                                                     maxBytes=1024*1024*1024,
-                                                     backupCount=1))
+                logging.handlers.TimedRotatingFileHandler(
+                    stats_logger_name, when='h', interval=6, backupCount=5))
             stats_logger.setLevel(logging.DEBUG)
         except Exception, e:
             logger.error("Can't read configuration file")
