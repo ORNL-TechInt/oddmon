@@ -11,6 +11,7 @@ import hostlist
 import pika
 import ssl   # for encrypted connections to the RabbitMQ broker
 import os
+import time
 
 ARGS    = None
 logger  = None
@@ -37,10 +38,24 @@ def handle_incoming( msg):
         return # don't actually process the message - just drain it
                # from the queue
     
-    #msg is a list (with just one element) of JSON-encoded strings   
-    blob = json.loads(msg)
-    logger.debug( "blob keys: %s"%blob.keys())
-    
+    #msg is a JSON-encoded string
+    try:
+        blob = json.loads(msg)
+    except ValueError, e: # thrown when loads() can't decode something
+        logger.error( "Bad json received from RMQ server. MSG len: %d", len(msg))
+        logger.error( e)
+        logger.error( "Last 50 bytes: %s", msg[-50:])
+        logger.error( "Skipping this message")
+        # Dump the bad JSON to a /tmp file
+        fname = "/tmp/bad_json_%d.txt"%int(time.time())
+        f = open(fname, 'w')
+        f.write(msg)
+        f.close()
+        logger.error( "Message dumped to: %s"%fname)
+        blob = { }  # empty blob so there's nothing to process in the 
+                    # for loop below 
+
+    logger.debug( "blob keys: %s"%blob.keys())   
     for name, mod in plugins.found():
         uname = unicode(name)
         if blob.has_key( uname):
@@ -64,7 +79,7 @@ def on_channel_open(new_channel):
 
 def on_queue_declared(frame):
     """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
-    logger.debug( "Queue declared.  Awaiting incoming messages...")
+    logger.info( "Queue declared.  Awaiting incoming messages...")
     channel.basic_consume(handle_delivery, queue=G.queue)
 
 def handle_delivery(channel, method, header, body):
