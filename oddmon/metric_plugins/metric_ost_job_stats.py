@@ -15,6 +15,8 @@ except:
 logger = None        # used for normal logging messages
 stats_logger = None  # the logger we use to write the stats data
 
+class JobDataError( RuntimeError):
+    pass
 
 # Holds a subset of the job data that we want to save for comparison
 # with the next sample.  See G.job_times below.
@@ -197,7 +199,65 @@ def update():
             G.stats[target] = []
 
 
-def read_target_stats(path, target_name):
+def process_job_data( job, target_name):
+    '''
+    Compares the collected data for one job against the previous data for that job.
+    
+    job is a dictionary who's keys are from the job_stats file ("setattr:",
+    "write_bytes:", etc..).  If the data in job is newer that what we have
+    stored in G.job_times, then do some more post-processing on it (calculate
+    the read and write delta values, if necessary) and update G.job_times.
+    
+    Returns True if the job has new data that needs to be sent to the
+    aggregator.
+    '''
+    
+    rv = False  # return value
+    
+    # First, some sanity checks.  What fields are in the dictionary depends on
+    # the Lustre version and whether we're on an OSS or MDS, but a couple of fields
+    # are mandatory
+    if not ("job_id:" in job) or \
+       not ("snapshot_time:" in job):
+        raise JobDataError();
+
+    # Now check the snapshot time against G.job_times
+    job_id = job["job_id:"]
+    if G.job_times[target_name][job_id].timestamp >= \
+        int(job["snapshot_time:"]):
+        # Hooray for defaultdict:  if the time hasn't been set,
+        # it will default to 0
+        pass
+    else: # job containds newer data - update G.job_times
+        # Data from the OSS's has read & write bytes values, and we need to
+        # calculate deltas using the previous data from G.job_times
+        if ("write_sum:" in job):  # if write_sum exists, so will the others
+            job["write_sum_delta"] = int(job["write_sum:"]) - G.job_times[target_name][job_id].write_sum
+            job["read_sum_delta"] = int(job["read_sum:"]) - G.job_times[target_name][job_id].read_sum                  
+            job["write_samples_delta"] = int(job["write_samples:"]) - G.job_times[target_name][job_id].write_samples
+            job["read_samples_delta"] = int(job["read_samples:"]) - G.job_times[target_name][job_id].read_samples
+            
+            # overwrite the old summary data with the new
+            G.job_times[target_name][job_id] = \
+                JobSummary( int(job["snapshot_time:"]), int(job["write_sum:"]),
+                            int(job["read_sum:"]), int(job["write_samples:"]),
+                            int(job["read_samples:"]))
+            # Note the conversions to int!  We want to ensure the
+            # comparison up above works as expected!
+        else: # this is MDS data - just need the timestamp
+            # overwrite the old summary data with the new
+            G.job_times[target_name][job_id] = \
+                JobSummary( int(job["snapshot_time:"]))
+        rv = True
+
+    return rv
+        
+    
+    
+def read_target_stats( path, target_name):
+    '''
+    Parse the job_stats file in the specified path
+    '''
     stats = []  # The return value - a list of dictionaries where each
                 # dictionary holds key/value pairs for a single job
 
@@ -206,108 +266,44 @@ def read_target_stats(path, target_name):
     with open(pfile) as f:
         flag = True
         timestamp = int(time.time())
-
-        # The OST's and MDT's have different data in their job_stats files
-        if G.is_mds:
-            kw = ["open:", "close:", "mknod:", "link:", "unlink:", "mkdir:",
-                  "rmdir:", "rename:", "getattr:", "setattr:", "getxattr:",
-                  "setxattr:", "statfs:", "sync:", "samedir_rename:",
-                  "crossdir_rename:"]
-            stanza_lines = 18
-            data_elements = 18
-        else:
-            kw = ["punch:", "setattr:", "sync:"]
-            stanza_lines = 7
-            data_elements = 9  # 2 of the lines have 2 elements each
-
-        job_times = defaultdict(JobSummary)
-        # Maps a job id to its timestamp, read_sum & write_sum
-        # Compare against G.job_times[<target_name>]
-        
+      
         next(f)  # ignore the first line (it just says "job stats:")
-        while flag:
-            job = {}  # stores key/value pairs for a single job in the file
+        job = {}  # stores key/value pairs for a single job in the file`
+        for data in f:
+            line = data.split()
 
-            # Each pass through this inside while loop should parse
-            # a single complete stanza
-            i = 1
-            while i % (stanza_lines + 1) != 0:
-                try:
-                    data = next(f)
-                except:
-                    flag = False
-                    if i != 1:
-                        logger.error("job_stats file ended with an "
-                                     "incomplete job stanza.  That "
-                                     "shouldn't happen.")
-                    break
-                line = data.split()
-                # There's some lines in the stanza that are special cases
-                if "job_id:" in line:
-                    job["job_id:"] = line[2]
-                elif "snapshot_time:" in line:
-                    job["snapshot_time:"] = line[1]
-                elif "read:" in line:
-                    job["read_sum:"] = line[11]
-                    job["read_samples:"] = line[3].strip(",")
-                elif "write:" in line:
-                    job["write_sum:"] = line[11]
-                    job["write_samples:"] = line[3].strip(",")
+            if line[0] == '-':
+                # Start of a new job - check to see if the he previous job actually
+                # contains new data
+                if (len( job)): # If we're at the top of the file, job will be empty
+                    if process_job_data( job, target_name):
+                        stats.append(job)
+                    job = {}
 
-                # all the other lines are handled with the keyword lists
-                elif any(s in line for s in kw):
-                    job[line[0]] = line[3].strip(",")
+            # There's some lines in the stanza that are special cases
+            if "job_id:" in line:
+                job["job_id:"] = line[2]
+            elif "snapshot_time:" in line:
+                job["snapshot_time:"] = line[1]
+            # "read:" and "write:" are only in 2.5
+            elif "read:" in line:
+                job["read_sum:"] = line[11]
+                job["read_samples:"] = line[3].strip(",")
+            elif "write:" in line:
+                job["write_sum:"] = line[11]
+                job["write_samples:"] = line[3].strip(",")
+            # "read_bytes:" and "write_bytes:" are only in 2.8 (and probably newer)
+            elif "read_bytes:" in line:
+                job["read_sum:"] = line[11]
+                job["read_samples:"] = line[3].strip(",")
+            elif "write_bytes:" in line:
+                job["write_sum:"] = line[11]
+                job["write_samples:"] = line[3].strip(",")
+            else:  # all the other lines are handled identically
+                job[line[0]] = line[3].strip(",")
 
-                else:  # sanity check
-                    logger.warn("Ignoring unexpected line in job_stats file:")
-                    logger.warn(data)
-                    logger.warn("This shouldn't happen.  Has Lustre"
-                                " been updated?")
-                i += 1
-
-            if len(job) == data_elements:
-                # If we've read a complete job stanza, then check the
-                # timestamp: it's possible that nothing has changed since
-                # the last time we read this job_id. In that case we're not
-                # going to resend the data.
-                job_id = job["job_id:"]
-                if G.job_times[target_name][job_id].timestamp >= \
-                   int(job["snapshot_time:"]):
-                    # Hooray for defaultdict:  if the time hasn't been set,
-                    # it will default to 0
-
-                    # Copy the old job summary and don't output the data
-                    job_times[job_id] = G.job_times[target_name][job_id]
-                else:
-                    if not G.is_mds:
-                        # calculate the read & write delta values
-                        job["write_sum_delta"] = int(job["write_sum:"]) - G.job_times[target_name][job_id].write_sum
-                        job["read_sum_delta"] = int(job["read_sum:"]) - G.job_times[target_name][job_id].read_sum                  
-                        job["write_samples_delta"] = int(job["write_samples:"]) - G.job_times[target_name][job_id].write_samples
-                        job["read_samples_delta"] = int(job["read_samples:"]) - G.job_times[target_name][job_id].read_samples
-                        
-                        # overwrite the old summary data with the new
-                        job_times[job_id] = JobSummary( int(job["snapshot_time:"]),
-                                                        int(job["write_sum:"]),
-                                                        int(job["read_sum:"]),
-                                                        int(job["write_samples:"]),
-                                                        int(job["read_samples:"]))
-                        # Note the conversions to int!  Want to ensure the
-                        # comparison up above works as expected!
-                    else:
-                        # For the MDS, we just need the timestamp
-                        job_times[job_id] = JobSummary( int(job["snapshot_time:"]))
-                    
-                    stats.append(job)
-            elif len(job) != 0:
-                # A length of 0 means the file ended where it was supposed to.
-                # A non-zero length means we somehow got part of a job stanza.
-                logger.error("Ignoring incomplete job stanza.  This "
-                             "shouldn't happen.")
-
-    # Done reading the job_stats file
-
-    # Replace G.job_stats with job_stats for use the next time we're called
-    G.job_times[target_name] = job_times
-
+        # End of the for loop (and thus the file), process the last job dict
+        if process_job_data( job, target_name):
+            stats.append(job)
+        
     return stats
