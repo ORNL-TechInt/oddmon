@@ -10,6 +10,7 @@ import time
 import random
 import logging
 import json
+import socket
 import plugins
 import ConfigParser
 import pika  # RabbitMQ client library
@@ -155,9 +156,36 @@ def main( config_file):
             if msg: merged[name] = msg
 
         if len(merged) > 0:
+            # This check is really overkill, but we've been seeing occasional
+            # cases where the subscriber receives a corrupt JSON string from
+            # the RMQ server.  This check will ensure that the data we're
+            # about to send is really valid, and alert us with a separate
+            # message if it's not.  (The possibilty of the error message
+            # itself getting corrupted is something I'm deliberately
+            # ignoring...)
+            json_text = json.dumps(merged)
+            try:
+                temp_decoded = json.loads(json_text)
+            except ValueError, e: # thrown when loads() can't decode something
+                logger.error("Detected bad JSON data in output buffer")
+                
+                err_data = { }
+                err_data['host'] = socket.gethostname()
+                err_data['summary_message'] = "Detected bad JSON data in output buffer"
+                err_data['exception_message'] = str(e)
+                # TODO: Any other data we should gather?
+                
+                # Send the data as a separate message
+                G.channel.basic_publish(exchange='', routing_key=G.routing_key,
+                                    body=json.dumps( {'client_msg':err_data}))
+            finally:
+                temp_decoded = None 
+                # allow the garbage collector to reclaim what could be rather
+                # a lot of memory
+                
             logger.debug("publish: %s" % merged)
             G.channel.basic_publish(exchange='', routing_key=G.routing_key,
-                                    body=(json.dumps(merged)))
+                                    body=json_text)
         else:
             logger.warn("Empty stats")
 
