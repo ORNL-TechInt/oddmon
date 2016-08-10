@@ -55,14 +55,21 @@ def handle_incoming( msg):
         blob = { }  # empty blob so there's nothing to process in the 
                     # for loop below 
 
-    logger.debug( "blob keys: %s"%blob.keys())   
-    for name, mod in plugins.found():
-        uname = unicode(name)
-        if blob.has_key( uname):
-            logger.debug( "Matched %s - about to call save_stats()"%name)
-            mod.save_stats(blob[uname])
+    logger.debug( "blob keys: %s"%blob.keys())
+    if 'client_msg' in blob:  # client messages are handled differently
+        logger.error( "Received client message. Message data follows.") 
+        data = blob['client_msg']
+        for k in data:
+            logger.error( "%s: %s"%(k, data[k]))
+        logger.error( "End of client message.")
+    else:
+        for name, mod in plugins.found():
+            uname = unicode(name)
+            if uname in blob:
+                logger.debug( "Matched %s - about to call save_stats()"%name)
+                mod.save_stats(blob[uname])
+        # TODO: ought to check that there were no unhandled items in msg...
 
-    # TODO: ought to check that there were no unhandled items in msg...
 
 def on_connected(connection):
     """Called when we are fully connected to RabbitMQ"""
