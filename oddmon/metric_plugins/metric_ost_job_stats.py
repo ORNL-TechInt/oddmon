@@ -303,7 +303,12 @@ def read_target_stats( path, target_name):
                 job[line[0]] = line[3].strip(",")
 
         # End of the for loop (and thus the file), process the last job dict
-        if process_job_data( job, target_name):
-            stats.append(job)
+        if (len(job)):
+            # Practically speaking, the only time job would be empty is
+            # during testing on my VM's, but process_job_data will throw
+            # an exception if the required fields are missing, so we check
+            # for an empty dict before calling the function.
+            if process_job_data( job, target_name):
+                stats.append(job)
         
     return stats
