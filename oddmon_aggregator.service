@@ -1,0 +1,20 @@
+#systemd script for the oddmon aggregator
+
+# Note: run 'systemctl enable oddmon_aggregator.service' after installation
+# if you want the aggregator to be started automatically
+
+[Service]
+Type=simple
+#PIDFile=
+#EnvironmentFile=
+#ExecStartPre=
+ExecStart=/usr/bin/monctl.py aggregate --cfgfile /etc/oddmon/oddmon.cfg
+#ExecStartPost=
+#ExecStop=
+KillSignal=SIGINT
+# SIGINT instead of the default SIGTERM because the code catches the
+# KeyboardInterrupt exception that's generated with a SIGINT or CTRL-C.
+RemainAfterExit=False
+
+[Install]
+WantedBy=multi-user.target
