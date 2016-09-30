@@ -104,9 +104,12 @@ def metric_init(name, config_file, is_subscriber=False,
                 logging.handlers.TimedRotatingFileHandler(
                     stats_logger_name, when='h', interval=6, backupCount=5))
             stats_logger.setLevel(logging.DEBUG)
-        except Exception, e:
-            logger.error("Can't read configuration file")
+        except ConfigParser.Error, e:
+            logger.error("Problem reading configuration file")
             logger.error("Exception: %s" % e)
+            rv = False
+        except Exception, e:
+            logger.error("Unexpected Exception: %s" % e)
             rv = False
 
     return rv

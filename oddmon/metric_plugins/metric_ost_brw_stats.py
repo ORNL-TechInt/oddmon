@@ -47,21 +47,24 @@ def metric_init(name, config_file, is_subscriber=False,
         try:
             config.read(config_file)
             G.save_dir = config.get(name, "save_dir")
-        except Exception, e:
-            logger.error("Can't read configuration file")
+
+            # log to file until reaching maxBytes then create a new log file
+            stats_logger = logging.getLogger("brw_stats.%s" % __name__)
+            stats_logger.propagate = False
+            stats_logger_name = G.save_dir+os.sep+"brw_log.txt"
+            logger.debug("Stats data saved to: %s" % stats_logger_name)
+            stats_logger.addHandler(
+                    logging.handlers.TimedRotatingFileHandler(
+                        stats_logger_name, when='h', interval=6, backupCount=5))
+            stats_logger.setLevel(logging.DEBUG)
+
+        except ConfigParser.Error, e:
+            logger.error("Problem reading configuration file")
             logger.error("Exception: %s" % e)
             rv = False
-
-        # TODO: this code block should probably be inside the exception handler
-        # log to file until reaching maxBytes then create a new log file
-        stats_logger = logging.getLogger("brw_stats.%s" % __name__)
-        stats_logger.propagate = False
-        stats_logger_name = G.save_dir+os.sep+"brw_log.txt"
-        logger.debug("Stats data saved to: %s" % stats_logger_name)
-        stats_logger.addHandler(
-                logging.handlers.TimedRotatingFileHandler(
-                    stats_logger_name, when='h', interval=6, backupCount=5))
-        stats_logger.setLevel(logging.DEBUG)
+        except Exception, e:
+            logger.error("Unexpected Exception: %s" % e)
+            rv = False
 
     return rv
 
