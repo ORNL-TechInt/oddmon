@@ -22,9 +22,8 @@ logger  = None
 ARGS    = None
 
 class G:
-    config = None
-    channel = None
-    connection = None
+    # These 2 are set by calling rmq_init
+    connection_params = None
     routing_key = None
 
 
@@ -60,13 +59,21 @@ def rmq_init(config):
     
     creds = pika.PlainCredentials( username, password)
 
-    parameters = pika.ConnectionParameters(
+    G.connection_params = pika.ConnectionParameters(
         host=broker,
         port=port,
         virtual_host=virt_host,
         credentials = creds,
         ssl=use_ssl,
         ssl_options=ssl_opts)
+
+def rmq_connect( parameters):
+    '''
+    Connect to the RMQ server using the specified connection parameters.
+    
+    Expects a pika.ConnectionParameters object and returns a
+    pika.BlockingConnection object.
+    '''
     
     # The RabbitMQ server can't handle a bunch of clients attempting to 
     # simultaneously open connections and this is very likely to happen
@@ -77,12 +84,13 @@ def rmq_init(config):
     # Inside the loop, we'll sleep for a random amount of time in order to
     # spread the load out a bit.
     max_time = time.time() + 120 # spend a max of 2 minutes attempting to connect
-    while (G.connection is None and time.time() < max_time):
+    connection = None
+    while (connection is None and time.time() < max_time):
         try:
             # Wait a small amount of time before attempting to connect
             wait_time = random.random() * 1.0
             time.sleep(wait_time)
-            G.connection = pika.BlockingConnection(parameters)
+            connection = pika.BlockingConnection(parameters)
             is_connected = True
         except pika.exceptions.AMQPConnectionError, e:
             # if we get a timeout error, wait a little bit longer before
@@ -94,14 +102,37 @@ def rmq_init(config):
                 time.sleep(wait_time)
             else:
                 # Re-throw the exception
+                logger.exception("%s ** attempting to connect to RMQ server\n" % e)
                 raise
     # Exited from the while loop.  Did we connect?
-    if G.connection is None:
+    if connection is None:
         logger.critical( "Failed to connect to the RMQ server.")
         raise RuntimeError( "Failed to connect to the RMQ server.")
         
-    G.channel = G.connection.channel()
+    return connection
 
+#def publish_wrapper( body, exchange='', routing_key=G.routing_key):
+def publish_wrapper( body):
+    '''
+    A simple wrapper around the BlockingChannel.basic_publish function.
+    
+    Calls rmq_connect() to open a connection, uses the connection to get a
+    channel, then uses the channel to call basic_publish.  Then closes down
+    the channel and connection.
+    
+    Note: would probably work with any channel type's basic_publish() 
+    function.  rmq_connect() returns a BlockingConnection which will yield a
+    BlockingChannel, so that's all this function has been tested with.
+    '''
+    conn = rmq_connect( G.connection_params)
+    ch = conn.channel()
+    try:
+        ch.basic_publish( exchange='', routing_key=G.routing_key, body=body)
+    except Exception, e:
+        logger.exception("%s exception trying to publish to RMQ. (Exception message: %s)\n" % (type(e), e))
+        raise  # re-throw the exception
+    
+    conn.close()  # will automatically close the channel
 
 def sig_handler(signal, frame):
     print "\tUser cancelled ... cleaning up"
@@ -120,7 +151,7 @@ def main( config_file):
         logger.critical("Can't read configuration file")
         logger.critical("Reason: %s" % e)
         sys.exit(1)
-
+        
     try:
         sleep_interval = config.getint("global", "interval")
     except Exception, e:
@@ -135,11 +166,9 @@ def main( config_file):
         # This is no problem.  The disabled_plugins config is optional
         disabled_plugins = [ ]
 
-
-
-    # This will throw an exception if it fails to connect
+    # This will throw an exception if it fails
     rmq_init(config)
-
+    
     # initialize all metric modules
     plugins.scan(os.path.dirname(os.path.realpath(__file__))+"/metric_plugins", disabled_plugins)
     plugins.init( config_file, False)
@@ -151,18 +180,18 @@ def main( config_file):
             try:
                 msg = mod.get_stats()
             except Exception as e:
-                logger.exception("%s --->%s\n" % (name, e))
+                logger.exception("%s ---> %s\n" % (name, e))
 
             if msg: merged[name] = msg
 
-        if len(merged) > 0:
-            # This check is really overkill, but we've been seeing occasional
-            # cases where the subscriber receives a corrupt JSON string from
-            # the RMQ server.  This check will ensure that the data we're
-            # about to send is really valid, and alert us with a separate
-            # message if it's not.  (The possibilty of the error message
-            # itself getting corrupted is something I'm deliberately
-            # ignoring...)
+        if len(merged) > 0:   
+            # This check is really overkill, but we've been seeing
+            # occasional cases where the subscriber receives a corrupt JSON
+            # string from the RMQ server.  This check will ensure that the
+            # data we're about to send is really valid, and alert us with a
+            # separate message if it's not.  (The possibilty of the error
+            # message itself getting corrupted is something I'm
+            # deliberately ignoring...)
             json_text = json.dumps(merged)
             try:
                 temp_decoded = json.loads(json_text)
@@ -176,16 +205,14 @@ def main( config_file):
                 # TODO: Any other data we should gather?
                 
                 # Send the data as a separate message
-                G.channel.basic_publish(exchange='', routing_key=G.routing_key,
-                                    body=json.dumps( {'client_msg':err_data}))
+                publish_wrapper( body=json.dumps( {'client_msg':err_data}))
             finally:
                 temp_decoded = None 
                 # allow the garbage collector to reclaim what could be rather
                 # a lot of memory
                 
-            logger.debug("publish: %s" % merged)
-            G.channel.basic_publish(exchange='', routing_key=G.routing_key,
-                                    body=json_text)
+            logger.debug("publish: %s" % merged)          
+            publish_wrapper( body=json_text)            
         else:
             logger.warn("Empty stats")
 
@@ -216,8 +243,9 @@ def main( config_file):
         
         
 
-
+    logger.debug( "Exited from main loop.  Cleaning up plugins.")
     plugins.cleanup( False)
+    logger.info( "About to exit.")
 
 if __name__ == "__main__": main()
 
