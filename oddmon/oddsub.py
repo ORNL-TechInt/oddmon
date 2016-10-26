@@ -139,9 +139,11 @@ def rmq_init(config):
         logger.debug( "About to start RMQ message handling loop")
         connection.ioloop.start()
     except KeyboardInterrupt:
+        # TODO: It looks like this exception handler never gets called.  It
+        # appears the SIGINT handler in monctl.py is taking precedence..
         connection.close()
-        connection.ioloop.start()
-
+        
+        
 def main(config_file):
     global logger
     logger = logging.getLogger("app.%s" % __name__)
