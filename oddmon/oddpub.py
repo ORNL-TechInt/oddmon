@@ -3,8 +3,29 @@ __version__ = "0.1"
 """
     A simple distributed monitoring tool with plugin support
     author: Feiyi Wang <fwang2@ornl.gov>
-
+    
+    A note about our use of the multiprocessing package:
+    
+    This program uses the multiprocessing library to launch a separate
+    process to handle all the Pika calls (connect, publish, disconnect).
+    Normally, this would be considered overkill, but we've been seeing odd
+    errors where Pika's connection.close() method hangs.  Basic debugging
+    shows that Pika is waiting for a confirmation message from the server
+    before closing the TCP socket.  Since we're using a blocking connection,
+    that pretty much locks up the whole process.
+    
+    Our solution is to put all the Pika calls into a separate subprocess.  If
+    the subprocess hangs, the main process can just terminate it.  That may
+    leave a bit of a mess on the RMQ server, but since the problem appears to
+    be coming from the server in the first place, I don't feel particularly
+    guilty about that.
+    
+    Lest anyone forgets: the reason we're opening and closing separate
+    connections for each message is that we were having problems with long
+    duration connections: Occasionaly, we would see cases where the socket
+    got reset (again, from the server end).
 """
+
 import sys
 import time
 import random
@@ -16,6 +37,8 @@ import ConfigParser
 import pika  # RabbitMQ client library
 import ssl   # for encrypted connections to the RabbitMQ broker
 import os
+import multiprocessing
+
 
 # Globals
 logger  = None
@@ -111,8 +134,8 @@ def rmq_connect( parameters):
         
     return connection
 
-#def publish_wrapper( body, exchange='', routing_key=G.routing_key):
-def publish_wrapper( body):
+
+def publish_subprocess( connection_params, routing_key, body, success_event ):
     '''
     A simple wrapper around the BlockingChannel.basic_publish function.
     
@@ -123,16 +146,88 @@ def publish_wrapper( body):
     Note: would probably work with any channel type's basic_publish() 
     function.  rmq_connect() returns a BlockingConnection which will yield a
     BlockingChannel, so that's all this function has been tested with.
+    
+    Note: This function is expected to be called from a separate process,
+    which is why it doesn't rely on any of the global variables defined
+    at the top of this file.
     '''
+    
+    logger = logging.getLogger("app.%s" % __name__)
+    logger.debug( "Inside subprocess")
+    
     conn = rmq_connect( G.connection_params)
     ch = conn.channel()
     try:
+        
+        # This check is really overkill, but we've been seeing
+        # occasional cases where the subscriber receives a corrupt JSON
+        # string from the RMQ server.  This check will ensure that the
+        # data we're about to send is really valid, and alert us with a
+        # separate message if it's not.  (The possibilty of the error
+        # message itself getting corrupted is something I'm
+        # deliberately ignoring...)
+        try:
+            temp_decoded = json.loads(body)
+        except ValueError, e: # thrown when loads() can't decode something
+            logger.error("Detected bad JSON data in output buffer")
+            
+            err_data = { }
+            err_data['host'] = socket.gethostname()
+            err_data['summary_message'] = "Detected bad JSON data in output buffer"
+            err_data['exception_message'] = str(e)
+            # TODO: Any other data we should gather?
+            
+            # Send the data as a separate message
+            ch.basic_publish( exchange='', routing_key=G.routing_key,
+                              body=json.dumps( {'client_msg':err_data}))
+
+        # Normally, I would explicitly unbind temp_decoded and let the
+        # garbage collector clean it up (since it's probably pretty big).
+        # Since this function is supposed to run in a short-lived sub
+        # process, it's probably more efficient to just let the process end
+        # and let the OS clean up ALL the memory.
+            
         ch.basic_publish( exchange='', routing_key=G.routing_key, body=body)
+        success_event.set()  # Used to inform the main process that the message
+                             # was successfully sent
     except Exception, e:
         logger.exception("%s exception trying to publish to RMQ. (Exception message: %s)\n" % (type(e), e))
         raise  # re-throw the exception
     
     conn.close()  # will automatically close the channel
+    logger.debug( "Connection closed.  Subprocess exiting.")
+
+def publish_wrapper( body):
+    '''
+    A simple wrapper around the multiprocessing and Pika publishing code.
+    
+    Launches a sub-process that will open the RMQ connection, publish a 
+    message and close the connection.  If it appears the sub-process has
+    hung, will forcibly terminate it.
+    '''  
+    
+    # Use an event to allow the sub process to signal success to us
+    success_event = multiprocessing.Event()
+    success_event.clear()
+
+    # loop until we've successfully sent the message
+    while not success_event.is_set():
+        p = multiprocessing.Process( name = "oddpub_subproc",
+                                    target = publish_subprocess,
+                                    args = (G.connection_params, G.routing_key,
+                                            body, success_event))
+        p.start()
+        p.join( 5)  # 5 second timeout
+        if p.is_alive():
+            logger.warning("Terminating stuck publishing sub-process.")
+            p.terminate()
+            # Note: as mentioned at the top of the file, we've had cases where
+            # the message was published, but then the close function hung.
+            # As such, it's entirely possible for us to make it to this code,
+            # even though success_event was set.
+        if not success_event.is_set():
+            logger.warning( "Sub-process failed to send message.  Retrying...")
+
 
 def sig_handler(signal, frame):
     print "\tUser cancelled ... cleaning up"
@@ -185,32 +280,7 @@ def main( config_file):
             if msg: merged[name] = msg
 
         if len(merged) > 0:   
-            # This check is really overkill, but we've been seeing
-            # occasional cases where the subscriber receives a corrupt JSON
-            # string from the RMQ server.  This check will ensure that the
-            # data we're about to send is really valid, and alert us with a
-            # separate message if it's not.  (The possibilty of the error
-            # message itself getting corrupted is something I'm
-            # deliberately ignoring...)
-            json_text = json.dumps(merged)
-            try:
-                temp_decoded = json.loads(json_text)
-            except ValueError, e: # thrown when loads() can't decode something
-                logger.error("Detected bad JSON data in output buffer")
-                
-                err_data = { }
-                err_data['host'] = socket.gethostname()
-                err_data['summary_message'] = "Detected bad JSON data in output buffer"
-                err_data['exception_message'] = str(e)
-                # TODO: Any other data we should gather?
-                
-                # Send the data as a separate message
-                publish_wrapper( body=json.dumps( {'client_msg':err_data}))
-            finally:
-                temp_decoded = None 
-                # allow the garbage collector to reclaim what could be rather
-                # a lot of memory
-                
+            json_text = json.dumps(merged)   
             logger.debug("publish: %s" % merged)          
             publish_wrapper( body=json_text)            
         else:
