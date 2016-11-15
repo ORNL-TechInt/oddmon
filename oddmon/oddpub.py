@@ -186,8 +186,11 @@ def publish_subprocess( connection_params, routing_key, body, success_event ):
         # Since this function is supposed to run in a short-lived sub
         # process, it's probably more efficient to just let the process end
         # and let the OS clean up ALL the memory.
-            
+        
+        logger.debug("Calling basic_publish()")
+        start_time = time.time()    
         ch.basic_publish( exchange='', routing_key=G.routing_key, body=body)
+        logger.debug("basic_publish() complete.  Elapsed time: %0.3es"%(time.time() - start_time))
         success_event.set()  # Used to inform the main process that the message
                              # was successfully sent
     except Exception, e:
@@ -211,13 +214,15 @@ def publish_wrapper( body):
     success_event.clear()
 
     # loop until we've successfully sent the message
-    while not success_event.is_set():
+    while not success_event.is_set():      
+        logger.debug( "Launching Sub-process")
         p = multiprocessing.Process( name = "oddpub_subproc",
                                     target = publish_subprocess,
                                     args = (G.connection_params, G.routing_key,
                                             body, success_event))
+        start_time = time.time()
         p.start()
-        p.join( 5)  # 5 second timeout
+        p.join( 10)  # 10 second timeout
         if p.is_alive():
             logger.warning("Terminating stuck publishing sub-process.")
             p.terminate()
@@ -225,6 +230,9 @@ def publish_wrapper( body):
             # the message was published, but then the close function hung.
             # As such, it's entirely possible for us to make it to this code,
             # even though success_event was set.
+        else:
+            end_time = time.time()
+            logger.debug( "Sub-process complete. Elapsed time: %0.3es"%(end_time - start_time))
         if not success_event.is_set():
             logger.warning( "Sub-process failed to send message.  Retrying...")
 
@@ -303,6 +311,7 @@ def main( config_file):
         # to sleep.
         wake_time = time.time()
         wake_time += sleep_interval - (wake_time % sleep_interval)
+        logger.debug( "Next wake time: %d"%wake_time)
         while (time.time() < wake_time):
             sleep_time = (wake_time - time.time()) / 2
             if sleep_time < 0.05:
@@ -310,6 +319,7 @@ def main( config_file):
                                    # milliseconds - we don't need that kind
                                    # of precision
             time.sleep( sleep_time)
+        logger.debug( "Actual wake time: %d"%int(time.time()))
         
         
 
