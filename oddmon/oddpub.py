@@ -11,8 +11,10 @@ __version__ = "0.1"
     Normally, this would be considered overkill, but we've been seeing odd
     errors where Pika's connection.close() method hangs.  Basic debugging
     shows that Pika is waiting for a confirmation message from the server
-    before closing the TCP socket.  Since we're using a blocking connection,
-    that pretty much locks up the whole process.
+    before closing the TCP socket.  That said, there's some further evidence
+    that the actual problem occurred earlier in the basic_publish() function.
+    Regardless, since we're using a blocking connection, any sort of hang
+    pretty much locks up the whole process.
     
     Our solution is to put all the Pika calls into a separate subprocess.  If
     the subprocess hangs, the main process can just terminate it.  That may
@@ -23,7 +25,9 @@ __version__ = "0.1"
     Lest anyone forgets: the reason we're opening and closing separate
     connections for each message is that we were having problems with long
     duration connections: Occasionaly, we would see cases where the socket
-    got reset (again, from the server end).
+    got reset (again, from the server end).  It's possible this is related
+    to how the Pika BlockingConnection class handles heartbeat timeouts,
+    but that's still unclear.
 """
 
 import sys
@@ -90,7 +94,7 @@ def rmq_init(config):
         ssl=use_ssl,
         ssl_options=ssl_opts)
 
-def rmq_connect( parameters):
+def rmq_connect():
     '''
     Connect to the RMQ server using the specified connection parameters.
     
@@ -113,7 +117,7 @@ def rmq_connect( parameters):
             # Wait a small amount of time before attempting to connect
             wait_time = random.random() * 1.0
             time.sleep(wait_time)
-            connection = pika.BlockingConnection(parameters)
+            connection = pika.BlockingConnection( G.connection_params)
             is_connected = True
         except pika.exceptions.AMQPConnectionError, e:
             # if we get a timeout error, wait a little bit longer before
@@ -135,30 +139,30 @@ def rmq_connect( parameters):
     return connection
 
 
-def publish_subprocess( connection_params, routing_key, body, success_event ):
+def publish_subprocess( body, success_event):
     '''
-    A simple wrapper around the BlockingChannel.basic_publish function.
+    A simple wrapper around the channel.basic_publish function.
     
     Calls rmq_connect() to open a connection, uses the connection to get a
     channel, then uses the channel to call basic_publish.  Then closes down
     the channel and connection.
-    
-    Note: would probably work with any channel type's basic_publish() 
-    function.  rmq_connect() returns a BlockingConnection which will yield a
-    BlockingChannel, so that's all this function has been tested with.
-    
-    Note: This function is expected to be called from a separate process,
-    which is why it doesn't rely on any of the global variables defined
-    at the top of this file.
     '''
+    global logger
+    logger = logging.getLogger( logger.name + '.subproc')
+    # using getChild() would be easier, but we need a newer version of the
+    # logging library for that...
     
-    logger = logging.getLogger("app.%s" % __name__)
     logger.debug( "Inside subprocess")
-    
-    conn = rmq_connect( G.connection_params)
-    ch = conn.channel()
-    try:
         
+    conn = rmq_connect()
+    ch = conn.channel()
+    ch.confirm_delivery() # set delivery confirmation mode on for the channel
+    # NOTE: This is important! Without delivery confirmation, basic_publish()
+    # returns before the send actually finishes (despite the fact that it's
+    # supposed to be a BLOCKING channel).
+    
+    try:   
+        # --------------------------------------------------------------------
         # This check is really overkill, but we've been seeing
         # occasional cases where the subscriber receives a corrupt JSON
         # string from the RMQ server.  This check will ensure that the
@@ -167,7 +171,7 @@ def publish_subprocess( connection_params, routing_key, body, success_event ):
         # message itself getting corrupted is something I'm
         # deliberately ignoring...)
         try:
-            temp_decoded = json.loads(body)
+            temp_decoded = json.loads( body)
         except ValueError, e: # thrown when loads() can't decode something
             logger.error("Detected bad JSON data in output buffer")
             
@@ -180,25 +184,51 @@ def publish_subprocess( connection_params, routing_key, body, success_event ):
             # Send the data as a separate message
             ch.basic_publish( exchange='', routing_key=G.routing_key,
                               body=json.dumps( {'client_msg':err_data}))
-
-        # Normally, I would explicitly unbind temp_decoded and let the
-        # garbage collector clean it up (since it's probably pretty big).
-        # Since this function is supposed to run in a short-lived sub
-        # process, it's probably more efficient to just let the process end
-        # and let the OS clean up ALL the memory.
+        
+        # Normally, I'd set temp_decoded to None so that python could reclaim
+        # the memory.  Since this function is executing in a short-lived
+        # process, though, I think it's more efficient to just let the process
+        # end and let the OS reclaim all the memory at once.
+        # --------------------------------------------------------------------
         
         logger.debug("Calling basic_publish()")
         start_time = time.time()    
-        ch.basic_publish( exchange='', routing_key=G.routing_key, body=body)
-        logger.debug("basic_publish() complete.  Elapsed time: %0.3es"%(time.time() - start_time))
-        success_event.set()  # Used to inform the main process that the message
-                             # was successfully sent
+        while not success_event.is_set():
+            if ch.basic_publish( exchange='', routing_key=G.routing_key,
+                                 body=body, mandatory=True):
+                # NOTE: In the 0.9.x version (that we're using in production),
+                # basic_publish() always seems to return True. I have no idea
+                # what would cause it to return False.  (Possibly a failure
+                # related to the mandatory or immediate flags would.)
+                
+                 # let the main process know we've managed to send the message
+                success_event.set()
+            # NOTE: If we upgrade to a newer version of pika (the 0.10.x
+            # series, I think), we can also test for None, which gets set if 
+            # delivery confirmation is not enabled.
+            #elif success is None:  # basic_publish() returned None
+            #    logger.warning( "Delivery confirmation disabled.  Assuming successful publish.")
+            #    success_event.set()
+            else:  # basic_publish() returned False
+                logger.error( "basic_publish() failed.  Retrying...")           
+                
+        logger.debug("basic_publish() complete. Elapsed time: %0.3es"%(time.time() - start_time))
+        
+    # NOTE: If we upgrade to a newer version of Pika (the 0.10.x series),
+    # we can use BlockingChannel.publish() and trap these 2 new exceptions...
+    # except pika.exceptions.UnroutableError, e:
+    #     logger.exception("UnroutableError trying to publish to RMQ. (Exception message: %s)\n" % e)
+    # except pika.exceptions.NackError, e:
+    #     logger.exception("NackError trying to publish to RMQ. (Exception message: %s)\n" % e)
+    except pika.exceptions.AMQPChannelError, e:
+        logger.exception("AMQPChannelError trying to publish to RMQ. (Exception message: %s)\n" % e)
     except Exception, e:
         logger.exception("%s exception trying to publish to RMQ. (Exception message: %s)\n" % (type(e), e))
-        raise  # re-throw the exception
+        # No need to re-throw the exception since the sub-process is going to end anyway
     
     conn.close()  # will automatically close the channel
     logger.debug( "Connection closed.  Subprocess exiting.")
+
 
 def publish_wrapper( body):
     '''
@@ -209,32 +239,39 @@ def publish_wrapper( body):
     hung, will forcibly terminate it.
     '''  
     
+    logger.debug( "Launching Sub-process")
+    
     # Use an event to allow the sub process to signal success to us
-    success_event = multiprocessing.Event()
-    success_event.clear()
-
-    # loop until we've successfully sent the message
-    while not success_event.is_set():      
-        logger.debug( "Launching Sub-process")
+    success_evt = multiprocessing.Event()
+    success_evt.clear()
+    while not success_evt.is_set():
         p = multiprocessing.Process( name = "oddpub_subproc",
                                     target = publish_subprocess,
-                                    args = (G.connection_params, G.routing_key,
-                                            body, success_event))
+                                    args = (body, success_evt))
+        
         start_time = time.time()
         p.start()
-        p.join( 10)  # 10 second timeout
-        if p.is_alive():
-            logger.warning("Terminating stuck publishing sub-process.")
+        
+        success_evt.wait( 30) # wait up to 30 seconds for the sub-process to
+                              # open the connection and send the data
+        if not success_evt.is_set():
+            logger.error( "Timed out waiting for successful send. Terminating the sub-process.")
             p.terminate()
-            # Note: as mentioned at the top of the file, we've had cases where
-            # the message was published, but then the close function hung.
-            # As such, it's entirely possible for us to make it to this code,
-            # even though success_event was set.
         else:
-            end_time = time.time()
-            logger.debug( "Sub-process complete. Elapsed time: %0.3es"%(end_time - start_time))
-        if not success_event.is_set():
-            logger.warning( "Sub-process failed to send message.  Retrying...")
+            # give it another 60 seconds to close the connection and exit
+            # the process
+            p.join( 30) 
+            if p.is_alive():
+                logger.warning("Terminating stuck publishing sub-process.")
+                p.terminate()
+                # Note that the sub-process has already set the success event
+                # in this case, so we don't need to re-start the process.
+            else:
+                end_time = time.time()
+                logger.debug( "Sub-process complete. Elapsed time: %0.3es"%(end_time - start_time))
+                
+        if not success_evt.is_set():
+            logger.warning( "Re-starting the sub-process.")
 
 
 def sig_handler(signal, frame):
@@ -287,11 +324,11 @@ def main( config_file):
 
             if msg: merged[name] = msg
 
-        if len(merged) > 0:   
-            json_text = json.dumps(merged)   
-            logger.debug("publish: %s" % merged)          
-            publish_wrapper( body=json_text)            
-        else:
+        if len(merged) > 0:
+            json_text = json.dumps(merged)
+            logger.debug("publish: %s" % merged)
+            publish_wrapper( body=json_text)
+        else: # len(merged) was 0
             logger.warn("Empty stats")
 
         # Sleep until it's time to take the next sample.

@@ -34,6 +34,8 @@ def parse_args():
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("-v", "--verbose", default=False, action="store_true",
                                help="verbose output")
+    parent_parser.add_argument("--pika_debug", default=False, action="store_true",
+                               help="debugging info from the Pika library  (requires --verbose)")
     parent_parser.add_argument("-C", "--console", default=False, action="store_true",
                                help="log to the console (instead of syslog)")
     parent_parser.add_argument("--drain", default=False, action="store_true",
@@ -88,7 +90,7 @@ def main_collect():
     handle(p)
 
 
-def setup_logging(loglevel, console):
+def setup_logging(loglevel, pika_debug, console):
     global logger
 
     level = getattr(logging, loglevel.upper())
@@ -108,10 +110,12 @@ def setup_logging(loglevel, console):
     logger.propagate = False
     
     # Configure the logger settings for pika to match what we've
-    # just set up.  (Pika is the AMQP client library)
+    # just set up - except for possibly disabling DEBUG level messages.
+    # (Pika is the AMQP client library)
     pika_logger = logging.getLogger("pika")
-    if level == logging.DEBUG:
+    if level == logging.DEBUG and not pika_debug:
         level = logging.INFO # pika's DEBUG is really too verbose for us
+            
     pika_logger.setLevel( level)
     for h in logger.handlers:
         pika_logger.addHandler(h)
@@ -126,9 +130,9 @@ def main():
     ARGS = parse_args()
 
     if ARGS.verbose:
-        setup_logging("debug", ARGS.console)
+        setup_logging("debug", ARGS.pika_debug, ARGS.console)
     else:
-        setup_logging("info", ARGS.console)
+        setup_logging("info", ARGS.pika_debug, ARGS.console)
 
     logger.debug(ARGS)
 
