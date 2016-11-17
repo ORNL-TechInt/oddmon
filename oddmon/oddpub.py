@@ -241,6 +241,11 @@ def publish_wrapper( body):
     
     logger.debug( "Launching Sub-process")
     
+    # Add a small, random delay so that multiple publishers (they'll be almost
+    # 300 running in production) don't all hammer the RMQ servers at the same
+    # time.
+    time.sleep( random.random() * 10.0) # up to 10 seconds
+    
     # Use an event to allow the sub process to signal success to us
     success_evt = multiprocessing.Event()
     success_evt.clear()
