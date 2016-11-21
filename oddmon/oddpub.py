@@ -263,7 +263,7 @@ def publish_wrapper( body):
             logger.error( "Timed out waiting for successful send. Terminating the sub-process.")
             p.terminate()
         else:
-            # give it another 60 seconds to close the connection and exit
+            # give it another 30 seconds to close the connection and exit
             # the process
             p.join( 30) 
             if p.is_alive():
