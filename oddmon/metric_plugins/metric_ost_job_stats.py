@@ -294,18 +294,15 @@ def read_target_stats( path, target_name):
     # TODO: The "proper" way to get the job stats is to use 'lctl get_param *.*.job_stats',
     # rather than ready the file directly...
 
-    with open(pfile) as f:
-        flag = True
-        timestamp = int(time.time())
-      
+    with open(pfile) as f:     
         next(f)  # ignore the first line (it just says "job stats:")
-        job = {}  # stores key/value pairs for a single job in the file`
+        job = {}  # stores key/value pairs from a single job in the file
         for data in f:
             line = data.split()
 
             if line[0] == '-':
-                # Start of a new job - check to see if the he previous job actually
-                # contains new data
+                # Found the start of a new job; need to check to see if the
+                #  previous job actually contains new data
                 if (len( job)): # If we're at the top of the file, job will be empty
                     found_job_ids.append(job["job_id:"]) 
                     if process_job_data( job, target_name):

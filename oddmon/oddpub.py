@@ -139,7 +139,6 @@ def rmq_connect():
             wait_time = random.random() * 1.0
             time.sleep(wait_time)
             connection = pika.BlockingConnection( G.connection_params)
-            is_connected = True
         except pika.exceptions.AMQPConnectionError, e:
             # if we get a timeout error, wait a little bit longer before
             # trying again
