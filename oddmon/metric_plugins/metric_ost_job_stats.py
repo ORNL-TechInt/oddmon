@@ -242,7 +242,7 @@ def process_job_data( job, target_name):
     # are mandatory
     if not ("job_id:" in job) or \
        not ("snapshot_time:" in job):
-        raise JobDataError();
+        raise JobDataError()
 
     # Now check the snapshot time against G.job_times
     job_id = job["job_id:"]
@@ -284,7 +284,15 @@ def read_target_stats( path, target_name):
     stats = []  # The return value - a list of dictionaries where each
                 # dictionary holds key/value pairs for a single job
 
+    found_job_ids = [] # A list of all the job ID's found in the job_stats
+                       # file (regardless of whether or not they've been
+                       # updated since the last time we read the file).
+                       # Used down at the bottom of the function so we know
+                       # which jobs should not be purged from G.job_times.
+
     pfile = os.path.realpath(path) + "/job_stats"
+    # TODO: The "proper" way to get the job stats is to use 'lctl get_param *.*.job_stats',
+    # rather than ready the file directly...
 
     with open(pfile) as f:
         flag = True
@@ -299,6 +307,7 @@ def read_target_stats( path, target_name):
                 # Start of a new job - check to see if the he previous job actually
                 # contains new data
                 if (len( job)): # If we're at the top of the file, job will be empty
+                    found_job_ids.append(job["job_id:"]) 
                     if process_job_data( job, target_name):
                         stats.append(job)
                     job = {}
@@ -328,10 +337,35 @@ def read_target_stats( path, target_name):
         # End of the for loop (and thus the file), process the last job dict
         if (len(job)):
             # Practically speaking, the only time job would be empty is
-            # during testing on my VM's, but process_job_data will throw
-            # an exception if the required fields are missing, so we check
-            # for an empty dict before calling the function.
+            # during testing on my VM's, but but both process_job_data()
+            # and the job dictionary will throw exceptions if the required
+            # fields are missing, so we check for an empty dict before
+            # doing anything.
+            found_job_ids.append(job["job_id:"]) 
             if process_job_data( job, target_name):
                 stats.append(job)
         
+        # Job data gets purged from the job_stats file after a job has been
+        # inactive for a certain amount of time.  If that happens, we need to
+        # purge the appropriate JobSummary object from G.job_times.  The reason
+        # for this has to do with the calculations for the delta values. 
+        # Consider a typical long running simulation: it will do some I/O then
+        # enter a compute phase and then do some more I/O.  Lustre will record
+        # the stats for the first chunk of I/O.  The jobstats record will then
+        # get purged during the compute phase.  When the second I/O phase
+        # happens, a new jobstats record will be created, but all the counters
+        # will have been reset to zero.  If we don't purge G.job_times, then
+        # when we calculate the delta values, we will end up subtracting 
+        # the old (and presumably very large) values from the new, recentely 
+        # reset values.  This yields an incorrect results (which is often
+        # actually a negative value).
+        #
+        # TL;DR: If a job record has been purged from the job_stats file,
+        # then we also need to purge it from G.job_times.
+        for job_id in G.job_times[target_name].keys():
+            if not job_id in found_job_ids:
+                # purge the job from G.job_times.
+                logger.debug( "Purging job %s from g.job_times[%s]"%(job_id, target_name))
+                del G.job_times[target_name][job_id]
+
     return stats
