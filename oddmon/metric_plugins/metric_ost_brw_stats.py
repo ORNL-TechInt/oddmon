@@ -270,12 +270,3 @@ def update():
             stats[ost] = ret
     return stats
 
-
-if __name__ == '__main__':
-    # Set up a basic logging handler to use
-    # logging.getLogger("main.__main__").addHandler(logging.StreamHandler())
-    metric_init("brw-stats")
-    while True:
-        print get_stats()
-        time.sleep(5)
-    metric_cleanup()

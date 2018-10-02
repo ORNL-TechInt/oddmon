@@ -389,5 +389,3 @@ def main( config_file):
     plugins.cleanup( False)
     logger.info( "About to exit.")
 
-if __name__ == "__main__": main()
-

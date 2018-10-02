@@ -109,10 +109,3 @@ def update():
         if ret:
             G.stats[ost] = ret
 
-
-if __name__ == '__main__':
-    metric_init("ost-stats")
-    while True:
-        print get_stats()
-        time.sleep(5)
-    metric_cleanup()

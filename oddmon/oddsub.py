@@ -201,4 +201,3 @@ def main(config_file):
     
     #TODO: Intercept Ctrl-C and run plugins.cleanup( True)
 
-if __name__ == "__main__": main()
