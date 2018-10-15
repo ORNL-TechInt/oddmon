@@ -1,0 +1,47 @@
+# Set up base system
+#FROM centos:latest
+#FROM centos:7.5.1804
+
+# Images designed for Openshift S2I work.  'core' has the bare OS, 'base' has
+# 'core' plus the dev libraries
+FROM centos/s2i-core-centos7
+#FROM centos/s2i-base-centos7
+
+# Set up a nicer prompt
+# Exporting PS1 with the ENV command doesn't work (not sure why) and neither
+# does creating a .bashrc file.  So, stick the command in a normal file we
+# can just source after we connect int an interactive session. 
+# TODO: could probably include docker-specific stuff like the image name...
+RUN echo 'export PS1="\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$"' > /root/prompt.sh
+
+# Note: the default docker installation on Ubuntu (and probably elsewhere)
+# sets the default nameservers for containers to 8.8.8.8 and 8.8.4.4.
+# Unfortunately, connections to these (and probably all other external
+# nameservers) are blocked by ORNL.  You have to set up docker to use
+# the ORNL nameservers: 160.91.126.23 and 160.91.126.28
+# (Those IP addresses are valid as of 18 June 2018.)
+#
+# Without proper DNS resolution, the yum install commands will fail.
+
+# First thing we need is the epel repository
+RUN yum -y install epel-release
+
+# Now install the RabbitMQ server package
+RUN yum -y install rabbitmq-server
+
+# Some more example syntax...
+
+# Make port 80 available to the world outside this container
+#EXPOSE 80
+
+# Define environment variable
+#ENV NAME World
+
+# Command to run by default when the container launches...
+CMD ["/usr/sbin/rabbitmq-server" ]
+# Note: The config file location is specified by the deployment config yaml
+# file (look for the volumeMounts entry).  The name of the config file is
+# specified in the config map yaml file.
+#CMD ["bash"]
+#CMD ["echo", "Hello from inside my container!"]
+

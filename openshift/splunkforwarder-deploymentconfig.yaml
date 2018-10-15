@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: splunkforwarder-dc
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: splunkforwarder
+    spec:
+      containers:
+      - name: splunkforwarder
+        resources:
+          limits:
+            cpu: '500m'
+            memory: '1024Mi'
+          requests:
+            cpu: '500m'
+            memory: '512Mi'
+        command:
+        - sh
+        - -c
+        - 'exec /opt/splunkforwarder/bin/splunk start --no-prompt --answer-yes --accept-license --nodaemon'
+        image: docker-registry.default.svc:5000/stf008splunk/splunkforwarder-is:latest
+        volumeMounts:
+        - name: splunkdata
+          mountPath: /data/splunk
+        - name: splunkforwarder-configmap
+          mountPath: /opt/splunkforwarder/etc/system/local/
+      volumes:
+        - name: splunkdata
+          persistentVolumeClaim:
+            claimName: splunkdata
+        - name: splunkforwarder-configmap
+          configMap:
+            name: splunkforwarder-configmap

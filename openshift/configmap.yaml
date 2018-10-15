@@ -1,0 +1,50 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: splunkforwarder-configmap
+data:
+  outputs.conf: |-
+    [tcpout]
+    defaultGroup = default-autolb-group
+
+    [tcpout:default-autolb-group]
+    server = splunkindex02.ccs.ornl.gov:9997
+
+    [tcpout-server://splunkindex02.ccs.ornl.gov:9997]
+
+  limits.conf: |
+    #[inputproc]
+    #file_tracking_db_threshold_mb = 500
+
+    [thruput]
+    maxKBps = 256
+
+  inputs.conf: |
+    [default]
+    host = oddmon.granite.ccs.ornl.gov
+
+    [monitor:///data/splunk/BRW_Stats]
+    disabled = false
+    sourcetype = brw-stats-log
+    index = brw_stats
+    recursive = true;
+
+  server.conf: |
+    [general]
+    serverName = nids-mgmt01.ccs.ornl.gov
+    pass4SymmKey = <password here>
+
+    [sslConfig]
+    sslPassword = <password here>
+
+    [lmpool:auto_generated_pool_forwarder]
+    description = auto_generated_pool_forwarder
+    quota = MAX
+    slaves = *
+    stack_id = forwarder
+
+    [lmpool:auto_generated_pool_free]
+    description = auto_generated_pool_free
+    quota = MAX
+    slaves = *
+    stack_id = free

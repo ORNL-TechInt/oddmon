@@ -1,0 +1,24 @@
+Instructions for running the OddMon collector inside the Granite OpenShift cluster
+
+
+Setup
+=====
+
+1) Need a Splunk forwarder pod
+  A) Check out the docs at https://doc.granite.ccs.ornl.gov/integration-nccs/splunkExport/
+  B) Need two persistent volume claims: one for the log files and one for the forwarder to store state information
+  C) Use the splunkforwarder*.yaml files
+  D) The configmap.yaml file has dummy passwords in it.  
+    1) Actual passwords can be retrieved from the pkpass util (if your username is xmr).
+    2) We don't want the passwords in the git repo, so don't add the passwords to the yaml file
+    3) Upload the yaml file as-is and then edit it from the OpenShift GUI.
+2) RabbitMQ server pod
+  A) Doesn't seem to be a pre-packaged version available, so use a docker build
+    1) just need the CentOS-7 base and then 'yum install rabbitmq-server'
+  B) Need (or at least should probably have) a persistent volume for a backing store for queued messages
+  C) *Might* need a config map for the rabbitmq conf file(s), but as long as we mount the persistent volume in the correct location, we can probaby get away with the defaults
+  D) Need to expose a route so that the Lustre OSS's (running the oddmon collectors) can communicate
+
+  
+
+    

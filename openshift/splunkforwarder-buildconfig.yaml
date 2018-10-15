@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  name: splunkforwarder-bc
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: splunkforwarder-is:latest
+  source:
+    git:
+      uri: https://gitlab.ccs.ornl.gov/security-team/openshift-fleet.git
+    type: Git
+  strategy:
+    forcePull: true
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: splunkforwarder/Dockerfile
+  triggers:
+  - type: ConfigChange
+  
