@@ -1,0 +1,33 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: rabbitmq-server-is
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: rabbitmq-server
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: rabbitmq-server-is:latest
+    source:
+      git:
+        uri: https://github.com/ORNL-TechInt/oddmon.git
+        ref: openshift 
+      type: Git
+    strategy:
+      forcePull: true
+      type: Docker
+      dockerStrategy:
+        from:
+          kind: DockerImage
+          name: 'centos/s2i-base-centos7:latest'
+        dockerfilePath: openshift/Dockerfile.rabbitmq
+    triggers:
+    - type: ConfigChange
+kind: List
+metadata: {}
+  

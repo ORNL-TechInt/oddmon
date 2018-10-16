@@ -37,11 +37,17 @@ RUN yum -y install rabbitmq-server
 # Define environment variable
 #ENV NAME World
 
-# Command to run by default when the container launches...
-CMD ["/usr/sbin/rabbitmq-server" ]
-# Note: The config file location is specified by the deployment config yaml
-# file (look for the volumeMounts entry).  The name of the config file is
-# specified in the config map yaml file.
+# Switch to the directory where the persistent volume will be mounted
+# (because it's the only one we can write to)
+# TODO: Make this an argument perhaps?
+WORKDIR /var/lib/rabbitmq 
+
+# We need to change HOME to some place that's writeable because erlang
+# likes to scribble to files in $HOME/.erlang
+ENV HOME=/var/lib/rabbitmq
+CMD ["/usr/sbin/rabbitmq-server"]
+# Note: the rabbitmq-server will print a warning because it's not being run
+# as either "root" or "rabbitmq".  It will still run, though.
 #CMD ["bash"]
 #CMD ["echo", "Hello from inside my container!"]
 
