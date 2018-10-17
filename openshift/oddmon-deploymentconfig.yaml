@@ -51,10 +51,8 @@ spec:
           - oddmon
         from:
           kind: ImageStreamTag
-          name: 'oddmon:latest'
+          name: 'oddmon-is:latest'
           namespace: stf008splunk
-        lastTriggeredImage: >-
-          docker-registry.default.svc:5000/stf008splunk/oddmon:latest
       type: ImageChange
     - type: ConfigChange
 
