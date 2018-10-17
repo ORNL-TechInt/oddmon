@@ -1,0 +1,61 @@
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  labels:
+    app: rabbitmq-server
+  name: rabbitmq-server
+  namespace: stf008splunk
+spec:
+  # TODO: After we've gained some confidence with this config, we
+  # can probably remove the 'paused' line
+  paused: true
+  replicas: 1
+  selector:
+    app: rabbitmq-server
+    deploymentconfig: rabbitmq-server
+  strategy:
+    type: Rolling
+  template:
+    metadata:
+      labels:
+        app: rabbitmq-server
+        deploymentconfig: rabbitmq-server
+    spec:
+      containers:
+        - env:
+            - name: RABBITMQ_LOG_BASE
+              value: /var/lib/rabbitmq/log
+              # Makes rabbitmq write its logs to the persistent volume instead of /var/log
+          image: docker-registry.default.svc:5000/stf008splunk/rabbitmq-server-is@:latest
+          imagePullPolicy: Always
+          name: rabbitmq-server
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/rabbitmq
+              name: volume-3wp63
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: volume-3wp63
+          persistentVolumeClaim:
+            claimName: rabbitmq-data
+  test: false
+  triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+          - rabbitmq-server
+        from:
+          kind: ImageStreamTag
+          name: 'rabbitmq-server-is:latest'
+          namespace: stf008splunk
+        lastTriggeredImage: >-
+          docker-registry.default.svc:5000/stf008splunk/rabbitmq-server-is:latest
+      type: ImageChange
+

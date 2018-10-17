@@ -14,10 +14,13 @@ Setup
     3) Upload the yaml file as-is and then edit it from the OpenShift GUI.
 2) RabbitMQ server pod
   A) Doesn't seem to be a pre-packaged version available, so use a docker build
-    1) just need the CentOS-7 base and then 'yum install rabbitmq-server'
-  B) Need (or at least should probably have) a persistent volume for a backing store for queued messages
-  C) *Might* need a config map for the rabbitmq conf file(s), but as long as we mount the persistent volume in the correct location, we can probaby get away with the defaults
-  D) Need to expose a route so that the Lustre OSS's (running the oddmon collectors) can communicate
+  B) Need a persistent volume we can write to.
+    1) Mostly for a backing store for queued messages, but Erlang (which is what RabbitMQ is written in) likes to scribble to files in $HOME/.erlang
+  C) Need to expose a route so that the Lustre OSS's (running the oddmon collectors) can communicate
+    1) THIS HASN'T BEEN DONE YET!  THE DEPLOYMENTCONFIG YAML FILE NEEDS TO BE MODIFIED!
+  D) Dockerfile, buildconfig & deployment config yaml files are in the directory with this file
+    1) use 'oc create -f rabbitmq-buildconfig.yaml' and 'oc create -f rabbitmq-deploymentconfig.yaml'
+    2) Deployment starts out paused and will have to be manually resumed
 
   
 
