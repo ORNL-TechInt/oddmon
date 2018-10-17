@@ -1,10 +1,37 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: splunkdata
-spec:
-  accessModes:
-  - ReadWriteMany
-  resources:
-    requests:
-      storage: 5Gi
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: splunkdata
+  spec:
+    accessModes:
+    - ReadWriteMany
+    resources:
+      requests:
+        storage: 5Gi
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: splunk-forwarder-state
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 512Mi
+# Persistent volume for the RabbitMQ server
+#- apiVersion: v1
+#  kind: PersistentVolumeClaim
+#  metadata:
+#    name: rabbitmq-data
+#  spec:
+#    accessModes:
+#    - ReadWriteOnce
+#    resources:
+#      requests:
+#        storage: 5Gi        
+kind: List
+metadata: {}
+
