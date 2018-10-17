@@ -1,0 +1,8 @@
+# This file is used by the OpenShift python base image to install
+# prerequisties needed for oddmon.  If you're not running in an OpenShift
+# pod, you can ignore this file.
+#
+# The file format is described here:
+# https://pip.pypa.io/en/latest/reference/pip_install/#requirements-file-format
+#
+pika

@@ -7,5 +7,5 @@
 PYTHON=python
 
 # Note: I'm assuming the current directory is the root of the git repo.  
-#$PYTHON ./monctl aggregate --cfgfile openshift/oddmon-openshift.cfg -C -v
-$PYTHON openshift/hello_world.py
+$PYTHON ./monctl.py aggregate --cfgfile openshift/oddmon-openshift.cfg -C -v
+#$PYTHON openshift/hello_world.py
