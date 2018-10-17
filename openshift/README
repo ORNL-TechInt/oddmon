@@ -7,18 +7,26 @@ Setup
 1) Need a Splunk forwarder pod
   A) Check out the docs at https://doc.granite.ccs.ornl.gov/integration-nccs/splunkExport/
   B) Need two persistent volume claims: one for the log files and one for the forwarder to store state information
+   1) Claims are defined in persistentvolumeclaims.yaml
+   2) Note: Yaml file also defines a claim for the RabbitMQ server.  This is currently commented out.
   C) Use the splunkforwarder*.yaml files
   D) The configmap.yaml file has dummy passwords in it.  
     1) Actual passwords can be retrieved from the pkpass util (if your username is xmr).
     2) We don't want the passwords in the git repo, so don't add the passwords to the yaml file
     3) Upload the yaml file as-is and then edit it from the OpenShift GUI.
-2) RabbitMQ server pod
-  A) Doesn't seem to be a pre-packaged version available, so use a docker build
-  B) Need a persistent volume we can write to.
+
+    
+    
+3) RabbitMQ server pod
+  A) Making rabbitmq work on OpenShift is tricky because it communicates on a non-standard port and that port needs to be open to all the Lustre OSS's
+    1) For now, we'll continue to use the existing RabbitMQ servers
+    2) Since Scott Koch will probably want to shut those down soonish, we've done some preliminary work for creating a RabbitMQ pod.  (See below.)
+  B) Doesn't seem to be a pre-packaged version available, so use a docker build
+  C) Need a persistent volume we can write to.
     1) Mostly for a backing store for queued messages, but Erlang (which is what RabbitMQ is written in) likes to scribble to files in $HOME/.erlang
-  C) Need to expose a route so that the Lustre OSS's (running the oddmon collectors) can communicate
+  D) Need to expose a route (or more likely a nodeport) so that the Lustre OSS's (running the oddmon collectors) can communicate
     1) THIS HASN'T BEEN DONE YET!  THE DEPLOYMENTCONFIG YAML FILE NEEDS TO BE MODIFIED!
-  D) Dockerfile, buildconfig & deployment config yaml files are in the directory with this file
+  E) Dockerfile, buildconfig & deployment config yaml files are in the directory with this file
     1) use 'oc create -f rabbitmq-buildconfig.yaml' and 'oc create -f rabbitmq-deploymentconfig.yaml'
     2) Deployment starts out paused and will have to be manually resumed
 
