@@ -4,7 +4,7 @@
 
 # Not sure yet where the docker image actually stores the python interpreter.
 # (Hopefully, it's in the path...)
-$PYTHON=python
+PYTHON=python
 
 # Note: I'm assuming the current directory is the root of the git repo.  
 #$PYTHON ./monctl aggregate --cfgfile openshift/oddmon-openshift.cfg -C -v
