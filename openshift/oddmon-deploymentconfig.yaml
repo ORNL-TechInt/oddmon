@@ -22,7 +22,7 @@ spec:
         deploymentconfig: oddmon
     spec:
       containers:
-        - image: docker-registry.default.svc:5000/stf008splunk/oddmon:latest
+        - image: docker-registry.default.svc:5000/stf008splunk/oddmon-is:latest
           imagePullPolicy: Always
           name: oddmon
           #ports:

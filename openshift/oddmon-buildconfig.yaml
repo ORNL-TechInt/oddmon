@@ -1,41 +1,49 @@
 apiVersion: v1
-kind: BuildConfig
-metadata:
-  labels:
-    app: oddmon
-  name: oddmon
-  namespace: stf008splunk
-spec:
-  nodeSelector: null
-  output:
-    to:
-      kind: ImageStreamTag
-      name: 'oddmon:latest'
-  postCommit: {}
-  resources: {}
-  runPolicy: Serial
-  source:
-    git:
-      ref: openshift
-      uri: 'https://github.com/ORNL-TechInt/oddmon.git'
-    type: Git
-  strategy:
-    sourceStrategy:
-      env:
-        - name: DISABLE_SETUP_PY_PROCESSING
-          value: 'TRUE'
-        #- name: APP_FILE
-        #  value: monctl.py
-        - name: APP_SCRIPT
-          value: openshift/app_start.sh
-      from:
+items:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: oddmon-is
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      app: oddmon
+    name: oddmon
+    namespace: stf008splunk
+  spec:
+    nodeSelector: null
+    output:
+      to:
         kind: ImageStreamTag
-        name: 'python:2.7'
-        namespace: openshift
-    type: Source
-  triggers:
-    - imageChange:
-        lastTriggeredImageID: >-
-          docker-registry.default.svc:5000/openshift/python:latest
-      type: ImageChange
-    - type: ConfigChange
+        name: 'oddmon-is:latest'
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        ref: openshift
+        uri: 'https://github.com/ORNL-TechInt/oddmon.git'
+      type: Git
+    strategy:
+      sourceStrategy:
+        env:
+          - name: DISABLE_SETUP_PY_PROCESSING
+            value: 'TRUE'
+          #- name: APP_FILE
+          #  value: monctl.py
+          - name: APP_SCRIPT
+            value: openshift/app_start.sh
+        from:
+          kind: ImageStreamTag
+          name: 'python:2.7'
+          namespace: openshift
+      type: Source
+    triggers:
+      - imageChange:
+          lastTriggeredImageID: >-
+            docker-registry.default.svc:5000/openshift/python:latest
+        type: ImageChange
+      - type: ConfigChange
+kind: List
+metadata: {}
