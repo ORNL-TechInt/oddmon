@@ -4,26 +4,38 @@ Instructions for running the OddMon collector inside the Granite OpenShift clust
 Setup
 =====
 
-1) Need a Splunk forwarder pod
+1) Splunk forwarder pod
   A) Check out the docs at https://doc.granite.ccs.ornl.gov/integration-nccs/splunkExport/
   B) Need two persistent volume claims: one for the log files and one for the forwarder to store state information
    1) Claims are defined in persistentvolumeclaims.yaml
    2) Note: Yaml file also defines a claim for the RabbitMQ server.  This is currently commented out.
-  C) Use the splunkforwarder*.yaml files
+  C) Use the splunkforwarder*.yaml files  ('oc create -f <filename>')
   D) The configmap.yaml file has dummy passwords in it.  
     1) Actual passwords can be retrieved from the pkpass util (if your username is xmr).
     2) We don't want the passwords in the git repo, so don't add the passwords to the yaml file
     3) Upload the yaml file as-is and then edit it from the OpenShift GUI.
-
-    
-    
+ 
+2) Oddmon aggregator pod
+  A) For now, the aggregator will connect to the external RabbitMQ servers
+    1) At some point, we'll probably move those servers into OpenShift...
+  B) Uses a Docker image that is based on the standard Python 2.7 image in the docker repository
+  C) Pulls oddmon code from GitHub
+    1) GitHub repo is open, so no need for authentication tokens
+  D) There are no automatic build triggers because GitHub is outside the ORNL network and thus the firewall blocks connection attempts from the GitHub servers to the Granite API server.
+    1) A possible work-around is to set up a repo on code-int.ornl.gov that mirrors the GitHub repo.  The code-int server can send the notification to Granite.  (This hasn't been done, yet.)
+  F) The docker image automatically installs packages listed in requirements.txt
+  G) There are buildconfig and deploymentconfig yaml files.
+    1) Import them via the GUI or using 'oc create -f <filename>'
+ 
+Making a RabbitMQ server work on OpenShift is tricky because it communicates on a non-standard port and that port needs to be open to all the Lustre OSS's.  For now, we'll stick with the existing (non-OpenShift) RabbitMQ servers.  (The Oddmon aggregator has no problems connecting to these servers.)  Since the admin will probably want to shut those servers down soonish, we've done some preliminary work for creating a RabbitMQ pod:
+ 
 3) RabbitMQ server pod
-  A) Making rabbitmq work on OpenShift is tricky because it communicates on a non-standard port and that port needs to be open to all the Lustre OSS's
-    1) For now, we'll continue to use the existing RabbitMQ servers
-    2) Since Scott Koch will probably want to shut those down soonish, we've done some preliminary work for creating a RabbitMQ pod.  (See below.)
-  B) Doesn't seem to be a pre-packaged version available, so use a docker build
-  C) Need a persistent volume we can write to.
+  A) There doesn't seem to be a pre-packaged version available, so we'll use a docker build
+    1) The Dockerfile is actually called Dockerfile.rabbitmq 
+  B) Need a persistent volume we can write to.
     1) Mostly for a backing store for queued messages, but Erlang (which is what RabbitMQ is written in) likes to scribble to files in $HOME/.erlang
+    2) The PV definition is already in persistentvolumeclaims.yaml, but it's commented out.  And it only requests 5GB.
+    3) We should probably consider making the claim fairly large.  Historically, the we've wanted enough space to buffer all the messages from the collector processes for an entire weekend (in case the aggregator failed on a Friday evening and I didn't notice anything until Monday morning).  With OpenShift, this may be less important since OpenShift should automatically restart the pod.
   D) Need to expose a route (or more likely a nodeport) so that the Lustre OSS's (running the oddmon collectors) can communicate
     1) THIS HASN'T BEEN DONE YET!  THE DEPLOYMENTCONFIG YAML FILE NEEDS TO BE MODIFIED!
   E) Dockerfile, buildconfig & deployment config yaml files are in the directory with this file

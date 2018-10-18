@@ -9,6 +9,10 @@
 
     python setup.py bdist_rpm
 
+## OpenShift
+
+    If you wish to run the aggregator inside an OpenShift pod, most of the setup work has already been done.  Take a look at the README file in the openshift directory.
+
 ## Metric Plugins
 
 There are a few requirements for a valid plugin extension:
