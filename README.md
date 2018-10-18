@@ -2,16 +2,18 @@
 
 ## Dependencies
 
-        - if python < 2.5, then we need `argparse` package
-        - pika (RabbitMQ client library) 
+- if python < 2.5, then we need `argparse` package
+- pika (RabbitMQ client library) 
 
 ## Build binary rpm package
 
-    python setup.py bdist_rpm
+```shell
+python setup.py bdist_rpm
+```
 
 ## OpenShift
 
-    If you wish to run the aggregator inside an OpenShift pod, most of the setup work has already been done.  Take a look at the README file in the openshift directory.
+If you wish to run the aggregator inside an OpenShift pod, most of the setup work has already been done.  Take a look at the README file in the openshift directory.
 
 ## Metric Plugins
 
