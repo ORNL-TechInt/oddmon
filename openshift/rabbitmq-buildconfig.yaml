@@ -16,7 +16,7 @@ items:
     source:
       git:
         uri: https://github.com/ORNL-TechInt/oddmon.git
-        ref: openshift 
+        ref: splunk_mods
       type: Git
     strategy:
       forcePull: true
