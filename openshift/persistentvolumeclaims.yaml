@@ -4,12 +4,17 @@ items:
   kind: PersistentVolumeClaim
   metadata:
     name: splunkdata
+    annotations:
+      # These two annotations are experimental, but will hopefully turn OFF
+      # the NetApp snapshots.
+      trident.netapp.io/snapshotDirectory: "false"
+      trident.netapp.io/snapshotPolicy: "default"
   spec:
     accessModes:
     - ReadWriteMany
     resources:
       requests:
-        storage: 10Gi
+        storage: 40Gi
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
@@ -19,7 +24,7 @@ items:
     - ReadWriteOnce
     resources:
       requests:
-        storage: 512Mi
+        storage: 2Gi
 # Persistent volume for the RabbitMQ server
 #- apiVersion: v1
 #  kind: PersistentVolumeClaim
@@ -30,7 +35,7 @@ items:
 #    - ReadWriteOnce
 #    resources:
 #      requests:
-#        storage: 5Gi        
+#        storage: 50Gi        
 kind: List
 metadata: {}
 
