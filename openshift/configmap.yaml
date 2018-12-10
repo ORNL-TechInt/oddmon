@@ -29,6 +29,12 @@ data:
     index = brw_stats
     recursive = true;
 
+    [monitor:///data/splunk/Titan_Reliability]
+    disabled = false
+    sourcetype = titan-reliability-Log
+    index=titan_reliability
+    recursive = true;
+
   server.conf: |
     [general]
     serverName = nids-mgmt01.ccs.ornl.gov
