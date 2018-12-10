@@ -1,5 +1,9 @@
 Instructions for running the OddMon collector inside the Granite OpenShift cluster
 
+Note:  The project we're running the collector in also contains another app
+(the Titan HW Error Query tool - see the GUIDE project).  As such, the Splunk
+forwarder pod may and its associated persistent volume claimalready be set up.
+
 
 Setup
 =====
